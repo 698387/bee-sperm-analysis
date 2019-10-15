@@ -102,3 +102,12 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# The videos and pictures are to heavy to upload to git
+Videos/
+videos/
+Video/
+video/
+Fotos/
+
+
