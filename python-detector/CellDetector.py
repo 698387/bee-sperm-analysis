@@ -1,6 +1,7 @@
 import cv2 as cv
+import math
 import numpy as np
-from CellPointDetector import pointInCell
+from CellPointDetector import pointInCell, allContourPoints
 from matplotlib import pyplot as plt
 
 
@@ -15,7 +16,8 @@ if not v.isOpened():
     exit()
 
 # Extracts each frame
-while True:
+stop = -1
+while stop == -1:
     raw_image_state, raw_image = v.read()
     if not raw_image_state:
         v.release()
@@ -29,26 +31,25 @@ while True:
     thrs2 = 2*thrs1
     edges = cv.Canny(blur_image, thrs1, thrs2, apertureSize=7)  
 
-    contours, hierarchy = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE )  
+    contours, hierarchy = cv.findContours(edges, cv.RETR_LIST, cv.CHAIN_APPROX_NONE )  
 
-    to_delete = []
-    for i in range(len(contours)):
-        if hierarchy[0][i][0] < 0:
-            to_delete.append(i)
-    for j in to_delete:
-        contours.pop(j)
+    found_contours = cv.drawContours(raw_image.copy(), contours, -1, (0,255,0)) 
     
-    # contours3, _ = cv.findContours(edges, cv.RETR_LIST, cv.CHAIN_APPROX_NONE ) 
-    #pointos= pointInCell(contours)
-    #found_pointos = raw_image.copy()
-    #for p in pointos:
-    #    found_pointos = cv.circle(found_pointos, p[1], 0, (0,255,255))
-
-    found_contours = cv.drawContours(raw_image.copy(), contours, -1, (0,255,0))     
+    points = allContourPoints(contours,11)
+    for p in points:
+        p2 = (int(p[1][0] + 4*math.cos(p[0])), int(p[1][1]+4*math.sin(p[0])))
+        found_contours = cv.line(found_contours, p[1],p2, (0,0,255))
+        
+    points = pointInCell(contours)
+    found_points = raw_image.copy()
+    for p in points:
+        found_points = cv.circle(found_points, p[1],0, (0,255,255))
     
     cv.imshow('original', gray_image)
     cv.imshow('edge', edges)
     cv.imshow('Contours', found_contours)
-    #cv.imshow('pointos', found_pointos)
+    cv.imshow('Points', found_points)
 
-    cv.waitKey(0)
+    stop = cv.waitKey(5)
+
+cv.destroyAllWindows()
