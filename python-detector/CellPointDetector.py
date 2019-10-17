@@ -1,5 +1,6 @@
 import cv2 as cv
 import math
+import statistics
 
 # Extracts the angle and the middle point from a segment of pixels
 def segment2point(pixels):
@@ -23,31 +24,50 @@ def allContourPoints(contours, length):
 
 # Find points that belongs to cells
 def pointInCell(contours, 
-                length=11,
-                max_distance=15, 
-                min_distance=5,
+                length=5,
+                max_distance=10, 
+                min_distance=2,
                 angle_error=0.1):
     contour_points = allContourPoints(contours, length)
-    inner_points = []
+
+    inner_points = []           # Vector of all the inner points
+    # Vector of all the distances between the edges of the inner points    
+    distances = []              
+    # For all the edge points extracts the inner points    
     while len(contour_points) > 0:
         cp = contour_points[0]
-        for a in contour_points[1:]:
-            parallel_diff = min(abs(cp[0] - a[0])%(2*math.pi),\
-                            abs(cp[0] - (a[0]+math.pi))%(2*math.pi))
+        for a in contour_points[1:]:    # Compare to the rest of the points
+            # Check the distance to the point (no further than max_distance)
             delta_x = cp[1][0] - a[1][0]
             delta_y = cp[1][1] - a[1][1]
-            theta = abs(math.atan2(delta_y, delta_x))
-            perp_diff = abs(cp[0]-theta)%(2*math.pi)
             dist = math.sqrt(delta_x*delta_x + delta_y*delta_y)
-            if dist <= max_distance \
-             and dist >= min_distance  \
+            if dist > max_distance:
+                continue
+
+            parallel_diff = min(abs(cp[0] - a[0])%(2*math.pi),\
+                            abs(cp[0] - (a[0]+math.pi))%(2*math.pi))
+            theta = math.atan2(delta_y, delta_x)
+            normal_diff = abs(cp[0]-theta)
+
+            # Check if the point is parallel and in a normal direction
+            if dist >= min_distance  \
              and parallel_diff <= angle_error \
-             and perp_diff > math.pi/4:
+             and normal_diff > math.pi/3 and normal_diff < 2*math.pi/3:
+
                 inner_angle = (cp[0] + a[0]) / 2
                 inner_center = (int((cp[1][0] + a[1][0]) / 2 + 0.5),\
                                  int((cp[1][1] + a[1][1]) / 2 + 0.5))
-                inner_points.append([inner_angle, inner_center])
-        contour_points = contour_points[1:]
+                inner_points.append((inner_angle, inner_center))
+                distances.append(dist)
+
+        contour_points = contour_points[1:] # Remove the first element
+
+    # Filters all points that are into the cell
+    m = statistics.median(distances)
+    final_inner_points = []
+    for i in range(len(distances)):
+        if m-2 <= distances[i] and m+2 >= distances[i]:
+            final_inner_points.append(inner_points[i])
 
     return inner_points
         

@@ -35,12 +35,13 @@ while stop == -1:
 
     found_contours = cv.drawContours(raw_image.copy(), contours, -1, (0,255,0)) 
     
-    points = allContourPoints(contours,11)
+    points = allContourPoints(contours,5)
     for p in points:
         p2 = (int(p[1][0] + 4*math.cos(p[0])), int(p[1][1]+4*math.sin(p[0])))
         found_contours = cv.line(found_contours, p[1],p2, (0,0,255))
         
     points = pointInCell(contours)
+    #points = []    
     found_points = raw_image.copy()
     for p in points:
         found_points = cv.circle(found_points, p[1],0, (0,255,255))
