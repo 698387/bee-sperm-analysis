@@ -1,15 +1,13 @@
-import cv2 as cv
 import math
 import statistics
 
 # Extracts the angle and the middle point from a segment of pixels
 def segment2point(pixels):
-    l = len(pixels)
-    delta_x = pixels[0][0][0]-pixels[l-1][0][0]
-    delta_y = pixels[0][0][1]-pixels[l-1][0][1]
+    delta_x = pixels[0][0][0]-pixels[-1][0][0]
+    delta_y = pixels[0][0][1]-pixels[-1][0][1]
     theta = math.atan2(delta_y, delta_x)
-    point = (int((pixels[0][0][0] + pixels[l-1][0][0]) / 2 + 0.5)\
-            ,int((pixels[0][0][1] + pixels[l-1][0][1]) / 2 + 0.5))
+    point = (int((pixels[0][0][0] + pixels[-1][0][0]) / 2 + 0.5)\
+            ,int((pixels[0][0][1] + pixels[-1][0][1]) / 2 + 0.5))
     return theta, point
 
 # Generate points from an array of contours
@@ -47,7 +45,7 @@ def pointInCell(contours,
             parallel_diff = min(abs(cp[0] - a[0])%(2*math.pi),\
                             abs(cp[0] - (a[0]+math.pi))%(2*math.pi))
             theta = math.atan2(delta_y, delta_x)
-            normal_diff = abs(cp[0]-theta)
+            normal_diff = abs(cp[0]-theta)%math.pi
 
             # Check if the point is parallel and in a normal direction
             if dist >= min_distance  \
@@ -66,7 +64,7 @@ def pointInCell(contours,
     m = statistics.median(distances)
     final_inner_points = []
     for i in range(len(distances)):
-        if m-2 <= distances[i] and m+2 >= distances[i]:
+        if m-1 <= distances[i] and m+1 >= distances[i]:
             final_inner_points.append(inner_points[i])
 
     return inner_points
