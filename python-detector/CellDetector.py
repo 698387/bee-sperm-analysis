@@ -1,8 +1,6 @@
 import cv2 as cv
 import math
-import numpy as np
 from CellPointDetector import pointInCell, allContourPoints
-from matplotlib import pyplot as plt
 
 
 # Reads the videofile
