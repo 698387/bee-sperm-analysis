@@ -20,6 +20,9 @@ if not v.isOpened():
     print('File couldn\'t be opened')
     exit()
 
+#video_blobs = cv.VideoWriter('blobs.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
+#original = cv.VideoWriter('original.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
+
 # Extracts each frame
 stop = -1
 while stop == -1:
@@ -38,16 +41,17 @@ while stop == -1:
     blob_params.filterByArea = True
     blob_params.minArea = 150
     
-    blob_detector = cv.SimpleBlobDetector(blob_params)
+    blob_detector = cv.SimpleBlobDetector_create(blob_params)
     cell_keypoints = blob_detector.detect(binary_img)
-    
-    im_with_keypoints = cv.drawKeypoints(raw_img, cell_keypoints, [])
-    
+    im_with_keypoints = cv.drawKeypoints(raw_img.copy(), cell_keypoints, np.array([]), (255,0,0), cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     skeleton, _ = find_skeleton(binary_img)
-    
+
+    original.write(raw_img)
+    video_blobs.write(im_with_keypoints)
+
     cv.imshow('Skeleton', skeleton)
     cv.imshow('original', gray_img)
 
-    stop = cv.waitKey(100)
+    #stop = cv.waitKey(100)
 
 cv.destroyAllWindows()
