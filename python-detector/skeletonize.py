@@ -1,4 +1,5 @@
 import cv2 as cv
+import numpy as np
 import math
 
 """ Extracts the skeleton of a binary image. It performs iterations until it 
@@ -9,9 +10,8 @@ def find_skeleton(original_image, max_it = 0):
     eroded = np.zeros(original_image.shape,np.uint8)
     temp = np.zeros(original_image.shape,np.uint8)
 
-    _,thresh = cv2.threshold(img,127,255,0)
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
+    kernel = cv.getStructuringElement(cv.MORPH_CROSS,(3,3))
+    thresh = original_image.copy()
 
     iters = 0
     while(True):

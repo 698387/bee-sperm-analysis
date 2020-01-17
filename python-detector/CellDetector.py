@@ -29,70 +29,25 @@ while stop == -1:
         break
 
     gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
-    equalized_img = cv.equalizeHist(gray_img)              # Equalized the hist
-    blur_img = cv.GaussianBlur(equalized_img, (9,9), 0)         # Eliminates noise
+    blur_img = cv.GaussianBlur(gray_img, (9,9), 0)      # Eliminates noise
     binary_img = cv.adaptiveThreshold(blur_img, 255,
-                                         cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                         cv.THRESH_BINARY,11,-3)
-    contours, hierarchy = cv.findContours(binary_img, cv.RETR_LIST,
-                                          cv.CHAIN_APPROX_NONE )
+                                     cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                     cv.THRESH_BINARY,11,-1)
     
-    contour_lengths = list(map(lambda x: len(x), contours))
-    mean = st.mean(contour_lengths)     # Mean of the data
-    sd = st.pstdev(contour_lengths)
+    blob_params = cv.SimpleBlobDetector_Params()
+    blob_params.filterByArea = True
+    blob_params.minArea = 150
     
-    contour_length_thres = mean + sd
-            
-    good_contours = list(filter(lambda x: len(x) > contour_length_thres, contours))
+    blob_detector = cv.SimpleBlobDetector(blob_params)
+    cell_keypoints = blob_detector.detect(binary_img)
     
-    found_contours = cv.drawContours(raw_img.copy(), good_contours, -1,
-                                     (0,255,0))
+    im_with_keypoints = cv.drawKeypoints(raw_img, cell_keypoints, [])
     
-    """params = cv.SimpleBlobDetector_Params()
-    params.filterByArea = True
-    params.minArea = 1500
-    detector = cv.SimpleBlobDetector(params)
-    blobs = detector.detect(binary_img)
+    skeleton, _ = find_skeleton(binary_img)
     
-    # Draw detected blobs as red circles.
-    # cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS ensures
-    # the size of the circle corresponds to the size of blob
-    
-    im_with_keypoints = cv.drawKeypoints(raw_img, blobs, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    
-    # Show blobs
-    cv.imshow("Keypoints", im_with_keypoints)
-    cv.waitKey(0)"""
-    
-    """# Extracts edges with canny detector
-    thrs1 = 3000
-    thrs2 = 2*thrs1
-    edges = cv.Canny(equalized_img, thrs1, thrs2, apertureSize=7)  
-
-    contours, hierarchy = cv.findContours(edges, cv.RETR_LIST, cv.CHAIN_APPROX_NONE )  
-
-    found_contours = cv.drawContours(raw_img.copy(), contours, -1, (0,255,0)) 
-    
-    points = allContourPoints(contours,5)
-    for p in points:
-        p2 = (int(p[1][0] + 4*math.cos(p[0])), int(p[1][1]+4*math.sin(p[0])))
-        found_contours = cv.line(found_contours, p[1],p2, (0,0,255))
-        
-    points = pointInCell(contours)
-    #points = []    
-    found_points = raw_image.copy()
-    for p in points:
-        found_points = cv.circle(found_points, p[1],0, (0,255,255))
-
-    # cv.imshow('Points', found_points) 
-    cv.imshow('edge', edges)"""
-    
-    cv.imshow('Contours', found_contours)
+    cv.imshow('Skeleton', skeleton)
     cv.imshow('original', gray_img)
-    cv.imshow('Equalized', equalized_img)
-    cv.imshow('blurred', blur_img)
-    cv.imshow('binary', binary_img)
 
-    stop = cv.waitKey(0)
+    stop = cv.waitKey(100)
 
 cv.destroyAllWindows()
