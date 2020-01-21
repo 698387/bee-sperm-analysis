@@ -4,7 +4,14 @@ from CellPointDetector import pointInCell, allContourPoints
 from skeletonize import find_skeleton
 import statistics as st
 import numpy as np
-from line_decoupler import decouple_lines
+from line_decoupler import decouple_lines, follow_line
+import math
+from sklearn.neighbors import KDTree
+
+# list of colors
+v = [0, 63, 127, 191, 255]
+colors = [(a,b,c) for a in v for b in v for c in v if not(a == b and b == c)]
+num_colors = len(colors)
 
 # Reads the videofile
 # Select the videofile
@@ -38,7 +45,18 @@ while stop == -1:
                                      cv.ADAPTIVE_THRESH_GAUSSIAN_C,
                                      cv.THRESH_BINARY,11,-1)
     skeleton, _ = find_skeleton(binary_img)
-    l = decouple_lines(skeleton)
+
+    lines = decouple_lines(skeleton,
+                           max_distance = 35,
+                           min_length = 1, 
+                           max_angle = math.pi/8)
+    
+    lines_img = raw_img.copy()
+    for i in range(0, len(lines)):
+        cv.polylines(lines_img, 
+                     np.int32([lines[i]]), 
+                     False, 
+                     colors[i % num_colors])
     
     """contours, _ = cv.findContours(skeleton, cv.RETR_LIST, cv.CHAIN_APPROX_NONE)
     contour_cod = []
@@ -55,10 +73,10 @@ while stop == -1:
                 cv.circle(circles_img, center, r, (0,255,0))  
         cv.imshow('circles detected', circles_img)
         cv.waitKey(0)""" 
-    print(np.where(skeleton==[255], axis=1))    
-        
-    raw_img[np.where(skeleton==[255])] = [0,0,255]
-    cv.imshow('original', raw_img)
+    skeleton_img = raw_img.copy()
+    skeleton_img[np.where(skeleton==[255])] = [0,0,255]
+    cv.imshow('skeletons', skeleton_img)
+    cv.imshow('lines', lines_img)
 
     stop = cv.waitKey(0)
 
