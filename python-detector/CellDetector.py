@@ -4,6 +4,7 @@ from CellPointDetector import pointInCell, allContourPoints
 from skeletonize import find_skeleton
 import statistics as st
 import numpy as np
+from line_decoupler import decouple_lines
 
 # Reads the videofile
 # Select the videofile
@@ -20,7 +21,6 @@ if not v.isOpened():
     print('File couldn\'t be opened')
     exit()
 
-#video_blobs = cv.VideoWriter('blobs.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
 #original = cv.VideoWriter('original.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
 
 # Extracts each frame
@@ -29,6 +29,7 @@ while stop == -1:
     raw_image_state, raw_img = v.read()
     if not raw_image_state:
         v.release()
+        cv.destroyAllWindows()
         break
 
     gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
@@ -36,22 +37,29 @@ while stop == -1:
     binary_img = cv.adaptiveThreshold(blur_img, 255,
                                      cv.ADAPTIVE_THRESH_GAUSSIAN_C,
                                      cv.THRESH_BINARY,11,-1)
-    
-    blob_params = cv.SimpleBlobDetector_Params()
-    blob_params.filterByArea = True
-    blob_params.minArea = 150
-    
-    blob_detector = cv.SimpleBlobDetector_create(blob_params)
-    cell_keypoints = blob_detector.detect(binary_img)
-    im_with_keypoints = cv.drawKeypoints(raw_img.copy(), cell_keypoints, np.array([]), (255,0,0), cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     skeleton, _ = find_skeleton(binary_img)
+    l = decouple_lines(skeleton)
+    
+    """contours, _ = cv.findContours(skeleton, cv.RETR_LIST, cv.CHAIN_APPROX_NONE)
+    contour_cod = []
+    for i in range(0, len(contours)):
+        circles_img = raw_img.copy()
+        contour_img = cv.drawContours(np.zeros(gray_img.shape, dtype=np.uint8), contours, i, 255)
+        cv.drawContours(circles_img, contours, i, (255,0,0))
+        # contour_cod.append(cv.HoughCircles(contour_img, cv.HOUGH_GRADIENT, 1, 5))
+        circles = cv.HoughCircles(contour_img, cv.HOUGH_GRADIENT, 1, 5)
+        if circles != None:
+            for c in circles:
+                center = (c[0], c[1])
+                r = c[2]
+                cv.circle(circles_img, center, r, (0,255,0))  
+        cv.imshow('circles detected', circles_img)
+        cv.waitKey(0)""" 
+    print(np.where(skeleton==[255], axis=1))    
+        
+    raw_img[np.where(skeleton==[255])] = [0,0,255]
+    cv.imshow('original', raw_img)
 
-    original.write(raw_img)
-    video_blobs.write(im_with_keypoints)
-
-    cv.imshow('Skeleton', skeleton)
-    cv.imshow('original', gray_img)
-
-    #stop = cv.waitKey(100)
+    stop = cv.waitKey(0)
 
 cv.destroyAllWindows()
