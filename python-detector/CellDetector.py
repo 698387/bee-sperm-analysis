@@ -8,6 +8,7 @@ from line_decoupler import decouple_lines, follow_line
 import math
 from sklearn.neighbors import KDTree
 import random as r
+from sFCM import sFCM
 
 # list of colors
 v = [0, 63, 127, 191, 255]
@@ -41,29 +42,37 @@ while stop == -1:
         break
 
     gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
-    blur_img = cv.GaussianBlur(gray_img, (9,9), 0)      # Eliminates noise
-    binary_img = cv.adaptiveThreshold(blur_img, 255,
-                                     cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                     cv.THRESH_BINARY,11,-1)
-    skeleton, _ = find_skeleton(binary_img)
-    
 
-    lines = decouple_lines(skeleton,
-                           max_distance = 20,
-                           min_length = 1,
-                           max_angle = math.pi/4)
-    lines_img = raw_img.copy()
+    cluster = sFCM(c=3)
+    #cluster.fit(gray_img)
+    cluster.fit(raw_img)
+
+    #blur_img = cv.GaussianBlur(gray_img, (9,9), 0)      # Eliminates noise
+    #binary_img = cv.adaptiveThreshold(blur_img, 255,
+    #                                 cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+    #                                 cv.THRESH_BINARY,11,-1)
+
+    #skeleton, _ = find_skeleton(binary_img)
+
+    #lines = decouple_lines(skeleton,
+    #                       max_distance = 20,
+    #                       min_length = 1,
+    #                       max_angle = math.pi/4)
+    #lines_img = raw_img.copy()
     
-    for i in range(0, len(lines)):
-        cv.polylines(lines_img, 
-                     np.int32([lines[i]]), 
-                     False, 
-                     colors[i % num_colors])
+    #for i in range(0, len(lines)):
+    #    cv.polylines(lines_img, 
+    #                 np.int32([lines[i]]), 
+    #                 False, 
+    #                 colors[i % num_colors])
     
-    skeleton_img = raw_img.copy()
-    skeleton_img[np.where(skeleton==[255])] = [0,0,255]
-    cv.imshow('skeletons', skeleton_img)
-    cv.imshow('lines', lines_img)
+    #skeleton_img = raw_img.copy()
+    #skeleton_img[np.where(skeleton==[255])] = [0,0,255]
+
+    #cv.imshow('skeletons', skeleton_img)
+    #cv.imshow('lines', lines_img)
+
+    cv.imshow('gray img', gray_img)
 
     stop = cv.waitKey(1)
     # cv.waitKey(0)
