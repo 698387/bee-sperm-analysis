@@ -31,7 +31,8 @@ if not v.isOpened():
     exit()
 
 #original = cv.VideoWriter('original.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
-
+cluster = sFCM(c=4)
+fitted = False
 # Extracts each frame
 stop = -1
 while stop == -1:
@@ -42,10 +43,14 @@ while stop == -1:
         break
 
     gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
+    if not fitted:
+        #cluster.fit(raw_img)
+        cluster.fit(gray_img, spatial = True)
+        fitted = True
 
-    cluster = sFCM(c=3)
-    #cluster.fit(gray_img)
-    cluster.fit(raw_img)
+    pred_class = cluster.predict(gray_img, spatial = True)
+    prediction = cluster.v[pred_class].astype(np.ubyte)
+    
 
     #blur_img = cv.GaussianBlur(gray_img, (9,9), 0)      # Eliminates noise
     #binary_img = cv.adaptiveThreshold(blur_img, 255,
@@ -73,6 +78,7 @@ while stop == -1:
     #cv.imshow('lines', lines_img)
 
     cv.imshow('gray img', gray_img)
+    cv.imshow('predicted img', prediction)
 
     stop = cv.waitKey(1)
     # cv.waitKey(0)
