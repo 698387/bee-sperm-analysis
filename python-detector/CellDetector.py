@@ -6,9 +6,49 @@ import statistics as st
 import numpy as np
 from line_decoupler import decouple_lines, follow_line
 import math
+import itertools as it
+from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
 import random as r
 from sFCM import sFCM
+
+"""
+Select the importance of the class, based on the amount in the samples, 
+and the distance to the other class. 
+@param class_samples is the class of each sample
+@param v is the value of the class
+"""
+def data_importance(class_samples, v):
+    # All classes variables
+    classes = list(range(0, len(v)))
+    n_classes = len(classes)
+
+    # Count the number samples of each class
+    count_class = np.zeros(n_classes)
+    total_length = len(class_samples)
+    for i in classes:
+        count_class[i] = np.count_nonzero(class_samples == i)
+    amount_imp =  count_class / total_length
+    
+    # Remove the classes for the background
+    max_idx = np.argmax(amount_imp)
+
+    amount_bc = amount_imp[max_idx]
+    bg = [max_idx]
+    fg = classes.copy()
+    fg.remove(max_idx)
+    while amount_bc < 0.8:
+        dist = cdist(v[bg], v[fg])
+        idx_min_dist = np.argmin(dist)
+        c = fg[idx_min_dist]
+        bg.append(c)
+        fg.remove(c)
+        amount_bc = amount_bc + amount_imp[c]
+
+    return fg
+
+    
+
 
 # list of colors
 v = [0, 63, 127, 191, 255]
@@ -31,11 +71,11 @@ if not v.isOpened():
     exit()
 
 #original = cv.VideoWriter('original.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
-cluster = sFCM(c=4)
+cluster = sFCM(c=3)
 fitted = False
 # Extracts each frame
 stop = -1
-while stop == -1:
+while stop != 27:
     raw_image_state, raw_img = v.read()
     if not raw_image_state:
         v.release()
@@ -43,19 +83,21 @@ while stop == -1:
         break
 
     gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
+
     if not fitted:
-        #cluster.fit(raw_img)
         cluster.fit(gray_img, spatial = True)
         fitted = True
+        pred_class = cluster.predict(gray_img, spatial = True)
+        cell_classes = data_importance(pred_class.flatten(), cluster.v )
+        prediction = np.where(np.isin(pred_class, cell_classes), 255, 0).astype("ubyte")
+    else:
+        pred_class = cluster.predict(gray_img, spatial = True)
+        prediction =  np.where(np.isin(pred_class, cell_classes), 255, 0).astype("ubyte")
 
-    pred_class = cluster.predict(gray_img, spatial = True)
-    prediction = cluster.v[pred_class].astype(np.ubyte)
     
-
-    #blur_img = cv.GaussianBlur(gray_img, (9,9), 0)      # Eliminates noise
-    #binary_img = cv.adaptiveThreshold(blur_img, 255,
-    #                                 cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-    #                                 cv.THRESH_BINARY,11,-1)
+    binary_img = cv.adaptivethreshold(gray_img, 255,
+                                     cv.adaptive_thresh_gaussian_c,
+                                     cv.thresh_binary,11,-1)
 
     #skeleton, _ = find_skeleton(binary_img)
 
@@ -79,8 +121,9 @@ while stop == -1:
 
     cv.imshow('gray img', gray_img)
     cv.imshow('predicted img', prediction)
+    cv.imshow('binary img', binary_img)
 
-    stop = cv.waitKey(1)
+    stop = cv.waitKey(0)
     # cv.waitKey(0)
 
 cv.destroyAllWindows()
