@@ -11,6 +11,10 @@ from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
 import random as r
 from sFCM import sFCM
+from ImagePreprocess import Preprocess
+
+from matplotlib import pyplot as plt
+import statistics as s
 
 """
 Select the importance of the class, based on the amount in the samples, 
@@ -71,7 +75,8 @@ if not v.isOpened():
     exit()
 
 #original = cv.VideoWriter('original.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
-cluster = sFCM(c=3)
+cluster = sFCM(c=3, init_points = np.array([5, 90, 200]), NB = 3)
+preproc = Preprocess()
 fitted = False
 # Extracts each frame
 stop = -1
@@ -85,19 +90,24 @@ while stop != 27:
     gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
 
     if not fitted:
-        cluster.fit(gray_img, spatial = True)
+        preproc.ext_param(gray_img)
+        img = preproc.apply(gray_img)
+        cluster.fit(img, spatial = True)
         fitted = True
-        pred_class = cluster.predict(gray_img, spatial = True)
-        cell_classes = data_importance(pred_class.flatten(), cluster.v )
-        prediction = np.where(np.isin(pred_class, cell_classes), 255, 0).astype("ubyte")
+        pred_class = cluster.predict(img, spatial = True)
+        # cell_classes = data_importance(pred_class.flatten(), cluster.v )
+        prediction = cluster.v[pred_class].astype("ubyte")
+        #prediction = np.where(np.isin(pred_class, cell_classes), 255, 0).astype("ubyte")
     else:
-        pred_class = cluster.predict(gray_img, spatial = True)
-        prediction =  np.where(np.isin(pred_class, cell_classes), 255, 0).astype("ubyte")
+        img = preproc.apply(gray_img)
+        pred_class = cluster.predict(img, spatial = True)
+        prediction = cluster.v[pred_class].astype("ubyte")
+        #prediction =  np.where(np.isin(pred_class, cell_classes), 255, 0).astype("ubyte")
 
     
-    binary_img = cv.adaptivethreshold(gray_img, 255,
-                                     cv.adaptive_thresh_gaussian_c,
-                                     cv.thresh_binary,11,-1)
+    #binary_img = cv.adaptivethreshold(gray_img, 255,
+    #                                 cv.adaptive_thresh_gaussian_c,
+    #                                 cv.thresh_binary,11,-1)
 
     #skeleton, _ = find_skeleton(binary_img)
 
@@ -121,9 +131,10 @@ while stop != 27:
 
     cv.imshow('gray img', gray_img)
     cv.imshow('predicted img', prediction)
-    cv.imshow('binary img', binary_img)
+    cv.imshow('normalized img', img)
+    #cv.imshow('binary img', binary_img)
 
     stop = cv.waitKey(0)
-    # cv.waitKey(0)
+    # cv.waitKey(1)
 
 cv.destroyAllWindows()

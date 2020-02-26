@@ -9,8 +9,15 @@ import cv2 as cv
 import random as r
 from scipy.spatial.distance import cdist
 
+import time
+
 
 class sFCM(object):
+    """
+    Performance the fuzzy c-means with an image, with the posibility of using
+    the spatial component
+    """
+
     """
     Init function.
     @param c is the number of clusters 
@@ -27,6 +34,8 @@ class sFCM(object):
         self.q = q
         self.NB = NB
         self.init_points = init_points
+        if len(init_points) > 0 and len(self.init_points.shape) < 2:
+            self.init_points = np.reshape(self.init_points, (self.c, -1))
         r.seed()
 
     """
@@ -40,25 +49,22 @@ class sFCM(object):
             # Index of the data
             idx_data = np.arange(data.shape[0])
 
-            # First centroid
-            v = data[np.random.choice(idx_data)]
-            self.init_points = np.array([v])
-            # Distance n x c matrix
-            D = np.linalg.norm(data - v, axis=1)
+            # Distance from each point to the nearest center
+            D = np.full(data.shape[0], np.inf)
+            # Probability of selecting each point
+            p = np.full(data.shape[0], 1.0/data.shape[0])
 
+            self.init_points = np.zeros((self.c, data.shape[1]))
             # Select the rest of the centroids
-            for i in range(1, self.c):
-                D_max = max(D)
-                # Probability depending on the distance
-                p_aux = np.power(D,2) / D_max**2   
-                # Normalized probability
-                p = p_aux / sum(p_aux)                  
-                # Select a next centroid
+            for i in range(1, self.c):                
+                # Select a next center
                 v = data[np.random.choice(idx_data, p = p)]   
-                self.init_points = np.concatenate((self.init_points, [v]))
+                self.init_points[i] = v
                 # Compute distance
-                D_aux = np.linalg.norm(data - v, axis=1)
+                D_aux = cdist(data, [v], metric='sqeuclidean').flatten()
                 D = np.array([D, D_aux]).min(axis = 0)
+                # Probability depending on the squared distance
+                p = D / sum(D)
 
         return self.init_points
 
@@ -67,7 +73,8 @@ class sFCM(object):
     """
     def __get_membership(self, data, data_shape):
         # Matrix distance from each centroid to each point
-        m_dist = np.power(cdist(data, self.v), 2 / (self.m - 1))
+        # m_dist = np.power(cdist(data, self.v), 2 / (self.m - 1))
+        m_dist = cdist(data, self.v, metric = 'sqeuclidean')
         # Returns 1/(sum_(j=1)^(c)(v_dist_i/v_dist_j)^(2/(m-1)))
         # Nan values are converted to 1
         return np.nan_to_num(
@@ -93,12 +100,14 @@ class sFCM(object):
     Update the centroids v with the new values
     """
     def __update_centroids(self, data, data_shape, u):
-        # v_j = (sum_(i=0)^n (u_ij*x_i) ) / sum_(i=0)^n (u_ij)
-        return np.matmul(u.transpose(), data) / u.sum(axis = 0).reshape(-1,1)
+        # v_j = (sum_(i=0)^n (u_ij^m*x_i) ) / sum_(i=0)^n (u_ij^m)
+        p_u = np.power(u, self.m)
+        return np.matmul(p_u.transpose(), data) / p_u.sum(axis = 0).reshape(-1,1)
 
     """
     Fit the cluster to the data
     @param data is a data representation. It has to be a 2d vector
+    @param spatial if true, spatial component will be used
     """
     def fit(self, raw_data, spatial = True):
         kernel = np.ones((self.NB, self.NB))
@@ -118,7 +127,7 @@ class sFCM(object):
         # Difference between old and new centroids
         diff_v = np.inf
         # Iterate until converges
-        while diff_v > 0.05:
+        while diff_v > 0.5:
             # Membership values
             u = self.__get_membership(data, data_shape)
             if spatial:     # Extracts the spatial information if indicated
@@ -143,7 +152,6 @@ class sFCM(object):
         u = self.__get_membership(data, data_shape)
         if spatial:     # Extracts the spatial information if indicated
             u = self.__spatial_membership(data_shape, kernel, u)
-        
         # Maximum value of u is the predicted value
         return u.argmax(axis = -1).reshape((data_shape[0], data_shape[1]))
 
