@@ -78,9 +78,9 @@ class sFCM(object):
         # Returns 1/(sum_(j=1)^(c)(v_dist_i/v_dist_j)^(2/(m-1)))
         # Nan values are converted to 1
         return np.nan_to_num(
-            1 / np.divide(np.repeat(m_dist, self.c, axis = 0),
+            np.divide(1, np.divide(np.repeat(m_dist, self.c, axis = 0),
                           m_dist.reshape(-1,1) ).reshape(-1, self.c, self.c)\
-                .reshape(-1, self.c, self.c).sum(axis=1),
+                .reshape(-1, self.c, self.c).sum(axis=1) ),
             1)
 
     """
@@ -90,11 +90,12 @@ class sFCM(object):
         # Reshape u to store it in the spatial form
         sp_u = u.reshape((data_shape[0], data_shape[1], self.c))
         # Calculates h power to q, and its multiplication by u^p
-        up_hq = np.power( 
+        up_hq = np.multiply( np.power( 
             cv.filter2D(sp_u, -1, kernel)\
                 .reshape((data_shape[0]*data_shape[1], -1)), self.q
-            ) * np.power(u, self.p)
-        return np.nan_to_num( up_hq / up_hq.sum(axis=-1).reshape(-1,1), 1)
+            ), np.power(u, self.p) )
+        return np.nan_to_num( 
+            np.divide( up_hq, up_hq.sum(axis=-1).reshape(-1,1) ), 1)
 
     """
     Update the centroids v with the new values

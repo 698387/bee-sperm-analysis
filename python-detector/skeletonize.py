@@ -20,7 +20,6 @@ def find_skeleton(original_image, max_it = 0):
         cv.subtract(thresh, temp, temp)
         cv.bitwise_or(skeleton, temp, skeleton)
         thresh = eroded.copy()
-
         iters += 1
         if cv.countNonZero(thresh) == 0:
             return (skeleton,iters)

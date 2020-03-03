@@ -1,7 +1,5 @@
 import cv2 as cv
 import sys
-from CellPointDetector import pointInCell, allContourPoints
-from skeletonize import find_skeleton
 import statistics as st
 import numpy as np
 from line_decoupler import decouple_lines, follow_line
@@ -17,39 +15,33 @@ from matplotlib import pyplot as plt
 import statistics as s
 
 """
-Select the importance of the class, based on the amount in the samples, 
-and the distance to the other class. 
-@param class_samples is the class of each sample
-@param v is the value of the class
+Select the layers depending of the classes fitted with sFCM
+@param cluster is the fitted cluster to the image
+@param img is the image used to fit the cluster
+@return true iff the cluster has not been corrected
 """
-def data_importance(class_samples, v):
-    # All classes variables
-    classes = list(range(0, len(v)))
-    n_classes = len(classes)
-
-    # Count the number samples of each class
-    count_class = np.zeros(n_classes)
-    total_length = len(class_samples)
-    for i in classes:
-        count_class[i] = np.count_nonzero(class_samples == i)
-    amount_imp =  count_class / total_length
+def cluster_corrector(cluster, img):
+    # Distance between class centers
+    center_dist = cdist(cluster.v, cluster.v)
+    # If the distance is lower than the image sigma, it combine the classes
+    classes2combine = []
+    for [x, y] in np.argwhere(center_dist < 43):
+        if x != y and not [y,x] in classes2combine:
+            classes2combine.append([x,y])
     
-    # Remove the classes for the background
-    max_idx = np.argmax(amount_imp)
+    # Re-fit the cluster if needed
+    if len(classes2combine) > 0:
+        # Extract the new posible centers for the init
+        new_centers = np.array([v for i,v in enumerate(cluster.v)\
+           if i not in list(map(lambda x: x[1], classes2combine) )] )
+        # Update the cluster parameters and re-fit it
+        cluster.c = len(new_centers)
+        cluster.init_points = new_centers
+        cluster.fit(img)
+        return False
+    else:
+        return True
 
-    amount_bc = amount_imp[max_idx]
-    bg = [max_idx]
-    fg = classes.copy()
-    fg.remove(max_idx)
-    while amount_bc < 0.8:
-        dist = cdist(v[bg], v[fg])
-        idx_min_dist = np.argmin(dist)
-        c = fg[idx_min_dist]
-        bg.append(c)
-        fg.remove(c)
-        amount_bc = amount_bc + amount_imp[c]
-
-    return fg
 
     
 
@@ -75,7 +67,7 @@ if not v.isOpened():
     exit()
 
 #original = cv.VideoWriter('original.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
-cluster = sFCM(c=3, init_points = np.array([5, 90, 200]), NB = 3)
+cluster = sFCM(c=3, init_points = np.array([5, 100, 200]), NB = 3)
 preproc = Preprocess()
 fitted = False
 # Extracts each frame
@@ -91,20 +83,25 @@ while stop != 27:
 
     if not fitted:
         preproc.ext_param(gray_img)
-        img = preproc.apply(gray_img)
-        cluster.fit(img, spatial = True)
+        norm_img = preproc.apply(gray_img)
+        cluster.fit(norm_img, spatial = True)
+        while not cluster_corrector(cluster, norm_img):
+            pass
         fitted = True
-        pred_class = cluster.predict(img, spatial = True)
-        # cell_classes = data_importance(pred_class.flatten(), cluster.v )
-        prediction = cluster.v[pred_class].astype("ubyte")
-        #prediction = np.where(np.isin(pred_class, cell_classes), 255, 0).astype("ubyte")
     else:
-        img = preproc.apply(gray_img)
-        pred_class = cluster.predict(img, spatial = True)
-        prediction = cluster.v[pred_class].astype("ubyte")
-        #prediction =  np.where(np.isin(pred_class, cell_classes), 255, 0).astype("ubyte")
+        norm_img = preproc.apply(gray_img)
+        
+    pred_class = cluster.predict(norm_img, spatial = True)
 
-    
+    bin_color = np.array([0, 255, 255])
+    binary_img = bin_color[pred_class].astype("ubyte")
+
+    skeleton_img = cv.ximgproc.thinning(binary_img)
+
+    pred_color = np.array([[0,0,0], [255,0,0], [0,0,255]])
+    skeleton_layers = pred_color[cv.bitwise_and(skeleton_img, pred_class.astype("ubyte"))].astype("ubyte")
+
+
     #binary_img = cv.adaptivethreshold(gray_img, 255,
     #                                 cv.adaptive_thresh_gaussian_c,
     #                                 cv.thresh_binary,11,-1)
@@ -130,9 +127,7 @@ while stop != 27:
     #cv.imshow('lines', lines_img)
 
     cv.imshow('gray img', gray_img)
-    cv.imshow('predicted img', prediction)
-    cv.imshow('normalized img', img)
-    #cv.imshow('binary img', binary_img)
+    cv.imshow('skeleton', skeleton_layers)
 
     stop = cv.waitKey(0)
     # cv.waitKey(1)
