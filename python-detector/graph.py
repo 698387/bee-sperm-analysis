@@ -17,41 +17,29 @@ class Graph:
         """
         Vertex class for the graph extracted from a skeleton
         """
-        vertex_counter = 0
 
         """
         The type of the point is either extreme or cross. It set the incoming edges,
         with the angle of entrance
         """
-        def __init__(self, type):
-            self.type = type                # Vertex type
-            self.id = Vertex.vertex_counter # id
-            Vertex.vertex_counter += 1      # Autoincrement id
-        
-        """
-        Return the vertex id
-        """
-        def id(self):
-            return id
+        def __init__(self, id, type, contour):
+            self.type = type                            # Vertex type
+            self.id = id                                # Id of the vertex
+            self.contour = contour                      # Contour of the vertex
+
     #End of Vertex class
 
     class Edge:
         """
         Edge class for the graph extracted from a skeleton
         """
-        edge_counter = 0
 
         """ 
         The origin and end points are type either extreme or either cross
         vertices of the graph
         """
         def __init__(self, points_b = []):
-            self._path = points_b        # List with all the points of the arc
-            self.id = Edge.edge_counter   # Id of the edge
-            Edge.edge_counter += 1        # Autoincrement id
-
-        def id(self):
-            return self.id
+            self._path = points_b               # List with all the points of the arc
 
         """
         Return the travel of the edge
@@ -60,13 +48,17 @@ class Graph:
             return travel._path
 
         """
-        Add a new point to the travel of the edge
+        Add a new point to the path of the edge
         """
         def add_path_point(self, point):
             self._path = np.append(self._path, [point], axis = 0)
-    # End of Edge class
 
-    edges_in_vertex_type = np.dtype()
+        """
+        Add a new points to the path of the edge
+        """
+        def add_path_points(self, points):
+            self._path = np.append(self._path, [points], axis = 0)
+    # End of Edge class
 
     """
     Init function for the graph
@@ -83,14 +75,14 @@ class Graph:
                  n_points_angle = 7):
         self.vertices = vertices
         self.edges = edges
-        self.vertices_in_edge = vertices_per_edgetions
+        self.vertices_in_edge = vertices_per_edge
         self.n_incident_p = n_points_angle
 
         # A vertex v will have a list of tuples (id,theta), in which id is the
         # identificator of an entrance vertex, with the incident angle theta.
         # The identificator of v is used as index in edges_in_vertex
         self.edges_in_vertex = [[] for _ in range(0,len(self.vertices)) ]
-        for i in range(0, len(self.vertices)):
+        for i in range(0, len(self.edges)):
             __edge_in_vertex_extractor(self, i)
 
     # Extracts the entrance angle to the vertices of the edge <<id>>

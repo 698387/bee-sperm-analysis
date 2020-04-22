@@ -9,8 +9,9 @@ from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
 import random as r
 from sFCM import sFCM
-from ImagePreprocess import Preprocess
-from GraphExtractor import extractLines
+from image_preprocess import Preprocess
+from graph_extractor import extractGraph
+
 
 from matplotlib import pyplot as plt
 import statistics as s
@@ -91,7 +92,7 @@ while stop != 27:
         norm_img = preproc.apply(gray_img)
         
     pred_class = cluster.predict(norm_img, spatial = True).astype("ubyte")
-    extractLines(pred_class, overlapping = False, debug = True)
+    extractGraph(pred_class, overlapping = False, debug = True)
     
     
     #skeleton_img = np.where(crosses)
