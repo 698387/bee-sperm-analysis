@@ -92,7 +92,7 @@ while stop != 27:
         norm_img = preproc.apply(gray_img)
         
     pred_class = cluster.predict(norm_img, spatial = True).astype("ubyte")
-    extractGraph(pred_class, overlapping = False, debug = True)
+    extractGraph(pred_class, overlapping_info = cluster.c > 2, debug = True)
     
     
     #skeleton_img = np.where(crosses)

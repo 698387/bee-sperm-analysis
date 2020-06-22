@@ -38,14 +38,16 @@ class Graph:
         The origin and end points are type either extreme or either cross
         vertices of the graph
         """
-        def __init__(self, points_b = []):
-            self._path = points_b               # List with all the points of the arc
+        def __init__(self, id, path_points, overlapping):
+            self._path = path_points    # List with all the points of the arc
+            self.id = id                # id of the edge
+            self.overlapping = overlapping  # Is it an overlapping edge?
 
         """
         Return the travel of the edge
         """
         def path(self):
-            return travel._path
+            return self._path
 
         """
         Add a new point to the path of the edge
@@ -57,7 +59,9 @@ class Graph:
         Add a new points to the path of the edge
         """
         def add_path_points(self, points):
-            self._path = np.append(self._path, [points], axis = 0)
+            self._path = np.append(self._path, points, axis = 0)
+
+
     # End of Edge class
 
     """
@@ -71,7 +75,10 @@ class Graph:
                           extracting the incidence angle to the vertices
                           it contains it
     """
-    def __init__(self, vertices = [], edges = [], vertices_per_edge = [], 
+    def __init__(self, 
+                 vertices = [], 
+                 edges = [],
+                 vertices_per_edge = np.empty((0,2),dtype = int), 
                  n_points_angle = 7):
         self.vertices = vertices
         self.edges = edges
@@ -97,13 +104,13 @@ class Graph:
         # Mean of the directions to extract the incident angle
         for p_it in range(0,num_angle_points-1):            # ORIGIN
             d_x, d_y = edge_path[p_it] - edge_path[p_it + 1]    # Difference
-            theta_o += m.atan2(dy, dx)
+            theta_o += m.atan2(d_y, d_x)
         for p_it in range(num_angle_points+1, path_len):    # END
             d_x, d_y = edge_path[p_it-1] - edge_path[p_it]     # Difference
-            theta_b += m.atan2(dy, dx)
+            theta_e += m.atan2(d_y, d_x)
 
         theta_o /= num_angle_points-1
-        theta_b /= num_angle_points-1
+        theta_e /= num_angle_points-1
 
         # Append to the list of edges in vertex
         self.edges_in_vertex[vertex_o].append((id, theta_o))
@@ -116,6 +123,8 @@ class Graph:
 
     # Add an edge to the graph. The two vertices are in the graph
     def add_edge(self, edge, vertex_o, vertex_e):
-        np.append(self.edges, edge)
-        np.append(self.vertices_in_edge, [[vertex_o, vertex_e]], axis = 0)
-        __edge_in_vertex_extractor(self, edge.id())
+        self.edges = np.append(self.edges, edge)
+        self.vertices_in_edge = np.append(self.vertices_in_edge,
+                                         [[vertex_o, vertex_e]], 
+                                         axis = 0)
+        self.__edge_in_vertex_extractor(edge.id)
