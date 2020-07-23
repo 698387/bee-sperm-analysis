@@ -8,46 +8,18 @@ import itertools as it
 from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
 import random as r
-from sFCM import sFCM
+from sFCM import sFCM, cluster_corrector
 from image_preprocess import Preprocess
 from graph_extractor import extractGraph
-
+from spermatozoid_extractor import cells_from_single_image
+import math as m
 
 from matplotlib import pyplot as plt
 import statistics as s
 
-"""
-Select the layers depending of the classes fitted with sFCM
-@param cluster is the fitted cluster to the image
-@param img is the image used to fit the cluster
-@return true iff the cluster has not been corrected
-"""
-def cluster_corrector(cluster, img):
-    # Distance between class centers
-    center_dist = cdist(cluster.v, cluster.v)
-    # If the distance is lower than the image sigma, it combine the classes
-    classes2combine = []
-    for [x, y] in np.argwhere(center_dist < 43):
-        if x != y and not [y,x] in classes2combine:
-            classes2combine.append([x,y])
-    
-    # Re-fit the cluster if needed
-    if len(classes2combine) > 0:
-        # Extract the new posible centers for the init
-        new_centers = np.array([v for i,v in enumerate(cluster.v)\
-           if i not in list(map(lambda x: x[1], classes2combine) )] )
-        # Update the cluster parameters and re-fit it
-        cluster.c = len(new_centers)
-        cluster.init_points = new_centers
-        cluster.fit(img)
-        return False
-    else:
-        return True
-
-
 
 # list of colors
-v = [0, 63, 127, 191, 255]
+v = [0, 127, 255]
 colors = [(a,b,c) for a in v for b in v for c in v if not(a == b and b == c)]
 num_colors = len(colors)
 
@@ -74,27 +46,61 @@ fitted = False
 stop = -1
 while stop != 27:
     raw_image_state, raw_img = v.read()
-    if not raw_image_state:
+    if not raw_image_state: # It exists an image
         v.release()
         cv.destroyAllWindows()
         break
 
     gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
 
-    if not fitted:
-        preproc.ext_param(gray_img)
-        norm_img = preproc.apply(gray_img)
-        cluster.fit(norm_img, spatial = True)
+    if not fitted:          # First iteration. Nothing is fitted
+        preproc.ext_param(gray_img)             # Preprocess fitting
+        norm_img = preproc.apply(gray_img)      # Preprocess
+        cluster.fit(norm_img, spatial = True)   # Cluster fitting
+        # Correct the cluster
         while not cluster_corrector(cluster, norm_img):
             pass
         fitted = True
     else:
-        norm_img = preproc.apply(gray_img)
-        
+        norm_img = preproc.apply(gray_img)      # Preprocess
+    
+    # Clustering by layers
     pred_class = cluster.predict(norm_img, spatial = True).astype("ubyte")
-    extractGraph(pred_class, overlapping_info = cluster.c > 2, debug = True)
-    
-    
+    # Extract the morphological graph
+    g = extractGraph(pred_class, overlapping_info = cluster.c > 2, n_pixels_angle = 7, debug = True)
+    # Find the cells in a single image
+    paths = cells_from_single_image(g, max_theta  = m.pi/4, max_evo_d = 4, max_length = 1000)
+
+
+    printing_paths = list(map(lambda x: np.flip(x, axis = 1), paths))
+    paths_img = raw_img.copy()
+    for i in range(0, len(paths)):
+        cv.polylines(paths_img, 
+                     np.int32([printing_paths[i]]), 
+                     False, 
+                     colors[i % num_colors])
+
+
+    vertex_img = raw_img.copy()
+    for i in range(0, len(g.vertices)):
+        vertex = g.vertices[i]
+        if vertex.type == "intersection":
+            center = np.mean(vertex.contour, axis = 0)[0]
+        else:
+            center = vertex.contour[0]
+            center = np.flip(center)
+
+        for (_, _, theta) in g.edges_in_vertex[vertex.id]:
+            extrem = np.int32(center+7*np.array([m.sin(theta), m.cos(theta)]))
+            cv.line(vertex_img,
+                    tuple(np.int32(center)),
+                    tuple(extrem),
+                    [0,0,255])
+
+        cv.fillPoly(vertex_img, 
+                     np.int32([np.flip(vertex.contour, axis = 1)]),  
+                     colors[i % num_colors])
+
     #skeleton_img = np.where(crosses)
 
     #binary_img = cv.adaptivethreshold(gray_img, 255,
@@ -122,6 +128,9 @@ while stop != 27:
     #cv.imshow('lines', lines_img)
 
     cv.imshow('gray img', gray_img)
+    cv.imshow('cells img', paths_img)
+
+    cv.imshow('Vertices', vertex_img)
 
     stop = cv.waitKey(0)
     # cv.waitKey(1)

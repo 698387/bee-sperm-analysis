@@ -105,12 +105,11 @@ It returns a list with the current point, and the vertex pixel that is his
 """
 def __vertex_neighbor(skeleton, vertex_map, point):
     # Extract all candidates
-    for c_point in __candidate_points(skeleton, point):
-        # Return true if it exists a vertex
-        if __is_vertex(vertex_map, c_point):
-            return np.array([c_point, point]).reshape((-1,2))
-    # Return false if a vertex doesn't exist in the candidates
-    return np.empty((0,2), dtype = int)
+    candidates = __candidate_points(skeleton, point)
+    # Return a list of points in whose neighbor there is a vertex
+    return [np.append([c_point], [point], axis = 0) for c_point in candidates \
+        if __is_vertex(vertex_map, c_point)]
+
 
 """
 Find the origins of all segments from an intersection vertex and return
@@ -127,10 +126,13 @@ def __origins_from_intersection(skeleton, vertex_map, vertex):
     
     # Extract lines from the good candidates
     list_origins = np.empty((0,2,2), dtype = int)
+
     for c in candidates:
         origin = __vertex_neighbor(local_skeleton, local_vertex_map, c)
-        if len(origin) > 0: # Check if it has some elements
-            list_origins = np.append(list_origins, [origin], axis = 0)
+        # Only interested in one element origins. More means surrounded by
+        # vertex, less means no vertex near
+        if len(origin) == 1 and not __is_vertex(vertex_map, origin[0][-1]):
+            list_origins = np.append(list_origins, origin, axis = 0)
 
     return list_origins + np.array([boundary_idx[0], boundary_idx[2]])
 
@@ -168,7 +170,8 @@ def __extract_vertices(skeleton):
 
     n_vertex = 0
     # Fill the map and the list with the extrems
-    extrems =  np.argwhere(extrem_p)
+    extrems =  np.argwhere( np.logical_and(extrem_p,
+                                           np.logical_not(intersec_area)) )
     for single_extrem_coord in extrems:
         # Creates the vertex
         v = Graph.Vertex(n_vertex, "extrem", [single_extrem_coord])    
@@ -316,8 +319,8 @@ def __extract_segments(skeleton, vertex_map, vertices):
         # Seed for generating new segments
         segment_seeds = []                                
         # The vertex is a single extrem
-        extrem_origin = vertex.contour[0]
         if vertex.type == "extrem":                 # EXTREM VERTEX
+            extrem_origin = vertex.contour[0]
             if skeleton[tuple(extrem_origin)]:                # Unvisited pixel
                 segment_seeds = [extrem_origin]               # Add the seed
 
@@ -375,7 +378,7 @@ def __insert_edges(graph, vertex_map, segment_v,
             if overlapping_info:    # It exists an overlapping layer
                 n_simple, n_overlap = \
                     __count_pixel_type_segment(layers_img, segment)
-                overlapping_edge = n_overlap > n_simple
+                overlapping_edge = (n_overlap / (n_simple + n_overlap)) > 0.6
             
         # Creates the edge 
         edge = Graph.Edge(edge_counter, segment, overlapping_edge)
@@ -390,7 +393,7 @@ Extracts the lines asociated with the spermatozoon from the different layers
 @param debug if true, it will show debug messages and images
 @return A list with all the lines found. Each line is an array of points
 """
-def extractGraph(layers_img, overlapping_info = False, debug = False):
+def extractGraph(layers_img, overlapping_info = False, n_pixels_angle = 7, debug = False):
     # Debug options
     global __debug_graph
     __debug_graph = debug
@@ -404,7 +407,7 @@ def extractGraph(layers_img, overlapping_info = False, debug = False):
     # Extract edges
     segments = __extract_segments(skeleton, vertex_map, vertices)
 
-    g = Graph(vertices = vertices)
+    g = Graph(vertices = vertices, n_points_angle = n_pixels_angle)
     __insert_edges(g, 
                    vertex_map, 
                    segments, 

@@ -8,6 +8,9 @@ Description: Graph implementation. The edges contain positional information
 import numpy as np
 import math as m
 
+ORIGIN_INCIDENCE = "o"
+FINAL_INCIDENCE = "e"
+
 class Graph:
     """
     Implementation of a grap class extracted from the skeleton
@@ -99,22 +102,21 @@ class Graph:
         path_len = len(edge_path)
         # Id of vertices containing the edge
         vertex_o, vertex_e = self.vertices_in_edge[id]
-        theta_o = 0; theta_e = 0
+        # Number of points to extract the vertex
         num_angle_points = min(path_len, self.n_incident_p)
-        # Mean of the directions to extract the incident angle
-        for p_it in range(0,num_angle_points-1):            # ORIGIN
-            d_x, d_y = edge_path[p_it] - edge_path[p_it + 1]    # Difference
-            theta_o += m.atan2(d_y, d_x)
-        for p_it in range(num_angle_points+1, path_len):    # END
-            d_x, d_y = edge_path[p_it-1] - edge_path[p_it]     # Difference
-            theta_e += m.atan2(d_y, d_x)
-
-        theta_o /= num_angle_points-1
-        theta_e /= num_angle_points-1
+        # Mean of the directions to extract the ingress angle
+        do_x, do_y = -np.sum(np.diff(edge_path[0:num_angle_points],
+                                  n=1, axis = 0),
+                          axis = 0)
+        theta_o = m.atan2(do_y, do_x)
+        de_x, de_y = np.sum(np.diff(edge_path[-num_angle_points:],
+                                  n=1, axis = 0),
+                          axis = 0)
+        theta_e = m.atan2(de_y, de_x)
 
         # Append to the list of edges in vertex
-        self.edges_in_vertex[vertex_o].append((id, theta_o))
-        self.edges_in_vertex[vertex_e].append((id, theta_e))
+        self.edges_in_vertex[vertex_o].append((id, ORIGIN_INCIDENCE, theta_o))
+        self.edges_in_vertex[vertex_e].append((id, FINAL_INCIDENCE, theta_e))
 
 
     # Add a vertex to the graph
@@ -128,3 +130,11 @@ class Graph:
                                          [[vertex_o, vertex_e]], 
                                          axis = 0)
         self.__edge_in_vertex_extractor(edge.id)
+
+    # Returns the id of the origin vertex of the edge with id e_id
+    def edge_origin(self, e_id):
+        return self.vertices_in_edge[e_id][0]
+
+    # Returns the id of the final vertex of the edge with id e_id
+    def edge_final(self, e_id):
+        return self.vertices_in_edge[e_id][1]
