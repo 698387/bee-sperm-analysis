@@ -362,7 +362,8 @@ Add a list of lines in the graph as edges. The vertex ids are defined for each
 point in the vertex_map (no vertex equals to -1 in the vertex_map)
 """
 def __insert_edges(graph, vertex_map, segment_v, 
-                   vertices, overlapping_info, layers_img):
+                   vertices, overlap_info, overlap_thres,
+                   layers_img):
     edge_counter = 0
     for segment in segment_v:
         # Gets the origin and end vertex ids
@@ -375,10 +376,10 @@ def __insert_edges(graph, vertex_map, segment_v,
            vertices[vertex_e].type == "intersection":
             overlapping_edge = True
              
-            if overlapping_info:    # It exists an overlapping layer
+            if overlap_info:    # It exists an overlapping layer
                 n_simple, n_overlap = \
                     __count_pixel_type_segment(layers_img, segment)
-                overlapping_edge = (n_overlap / (n_simple + n_overlap)) > 0.6
+                overlapping_edge = (n_overlap / len(segment)) > overlap_thres
             
         # Creates the edge 
         edge = Graph.Edge(edge_counter, segment, overlapping_edge)
@@ -393,7 +394,8 @@ Extracts the lines asociated with the spermatozoon from the different layers
 @param debug if true, it will show debug messages and images
 @return A list with all the lines found. Each line is an array of points
 """
-def extractGraph(layers_img, overlapping_info = False, n_pixels_angle = 7, debug = False):
+def extractGraph(layers_img, overlapping_info = False, overlapping_thres = 0.0,
+                 n_pixels_angle = 7, debug = False):
     # Debug options
     global __debug_graph
     __debug_graph = debug
@@ -412,7 +414,8 @@ def extractGraph(layers_img, overlapping_info = False, n_pixels_angle = 7, debug
                    vertex_map, 
                    segments, 
                    vertices, 
-                   overlapping_info, 
+                   overlapping_info,
+                   overlapping_thres,
                    layers_img)
 
     if __debug_graph:

@@ -54,12 +54,16 @@ def __similarity_value(edge, vertex_type4edge, theta_edge, v, g, theta_cell,
 
     # Calculates the value
     #if delta_theta > max_theta or evo_dist > max_evo_dist:
-    if delta_theta > max_theta:
+    if delta_theta > max_theta or evo_dist > max_evo_dist:
         return -1
     
     # The value depending on how many times a vertex has been visited
-    visited_value = 0.6*m.exp(-n_visited_edges[edge]*0.6)
-    return (1-(evo_dist / max_evo_dist)) * visited_value * (1-(delta_theta / max_theta))
+    n_visited_value = 0.6*m.exp(-n_visited_edges[edge]*0.6)
+    angle_value = (1-(delta_theta / max_theta))
+    evo_value = (1-(evo_dist / max_evo_dist))
+    edge_len = len(g.edges[edge].path())
+    len_value = min(1, edge_len / g.n_incident_p)
+    return (angle_value + evo_value) * n_visited_value / len_value
 
 
 
@@ -84,7 +88,8 @@ def __sperm_angle(spermatozoid_path, g, inverted):
 def __select_edge(g, current_edge, current_v_t4e, current_vertex, theta_sperm, 
                   curve_evolution,  evolutions_edge, n_visited_edges,
                   max_theta, max_evo_dist):
-    max_value = 0
+    err_value = 0.05
+    max_value = err_value   # Very low values wouldn't be considered
     selected_edge = None
     selected_v_type4edge = None
 
@@ -114,7 +119,7 @@ def __select_edge(g, current_edge, current_v_t4e, current_vertex, theta_sperm,
                 selected_v_type4edge = type_for_edge
 
     # Return found values
-    return (selected_edge, selected_v_type4edge, max_value > 0)
+    return (selected_edge, selected_v_type4edge, max_value > err_value)
 
 
 # It follows the most likely path for the edge e to the vertex v. It returns
@@ -229,12 +234,19 @@ def __extract_spermatozoid(e, g, n_visited_edges, evolutions_edge,
 """
 Given the morphological graph g, it extracts all the spermatozoids it can find
 @param g is the morphological graph
-@parm max_theta is the max difference between the entrance angle of two edges 
+@param n_points_cell is the number of points to codify each cell found. If 
+                     negative, it returns all the points it cross
+@param max_theta is the max difference between the entrance angle of two edges 
                 in a vertex to be considered the same
 @param max_evo is the max difference between two edges of a vertex in their 
                curve evolution to be considered the same
+@param max_length is the maximum length of the cell in pixels of the original
+                  image
 """
-def cells_from_single_image(g, max_theta = m.pi/18, max_evo_d = 0.01, max_length = 1000):
+def cells_from_single_image(g, n_points4cell = 32, 
+                            max_theta = m.pi/18,
+                            max_evo_d = 0.01,
+                            max_length = 1000):
     evolutions_edge = __extract_all_edge_evolutions(g)    # All edge evolutions
     n_visited_edges = np.full(len(g.edges), 0)        # Times visited each edge
     all_cell_path = []                                 # All spermatozoid cells
@@ -242,7 +254,7 @@ def cells_from_single_image(g, max_theta = m.pi/18, max_evo_d = 0.01, max_length
     # For each single edge, extract the spermatozoid
     shuffled_edges = g.edges.copy()
     r.shuffle(shuffled_edges)
-    for e in shuffled_edges:
+    for e in list(filter(lambda x: not x.overlapping, shuffled_edges)):
         v_o = g.vertices[g.edge_origin(e.id)]
         v_e = g.vertices[g.edge_final(e.id)]
         if (v_o.type == "extrem" or v_e.type == "extrem") and not n_visited_edges[e.id]:
@@ -257,6 +269,13 @@ def cells_from_single_image(g, max_theta = m.pi/18, max_evo_d = 0.01, max_length
             s = __extract_spermatozoid(e, g, n_visited_edges, evolutions_edge, 
                            max_theta, max_evo_d, max_length)
             all_cell_path.append(s)
-
-    return all_cell_path
+    # Returns the number of given points for each cell
+    if n_points4cell > 0:
+        return list(map(lambda s: 
+                        s[:(len(s)//n_points4cell)*n_points4cell\
+                            :len(s)//n_points4cell], 
+                        filter(lambda s: len(s) > n_points4cell,
+                               all_cell_path)))
+    else:
+        return all_cell_path
 
