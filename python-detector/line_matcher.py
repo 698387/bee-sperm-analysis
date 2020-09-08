@@ -7,7 +7,6 @@ Description: Implementation of the lineMatcher class, used to match different
 
 import numpy as np
 from itertools import combinations, repeat
-from scipy.spatial.distance import cdist
 
 class LineMatcher(object):
     """
@@ -24,58 +23,125 @@ class LineMatcher(object):
         def __init__(self, position, line_indices):
             self.position = position            # Match position
             self.indices = line_indices         # Match indices for each frame
-            self.match_counter = 1              # Counter of the match
+            self.match_counter = 2              # Counter of the match
                 
         # Update the current match with a new match
-        def update(self, position, line_indices):
-            repeated = True
-            for index in line_indices:
-                if not( index in self.indices): # non repeated
-                    repeated = False
-                    self.indices.append(index)
-            if repeated:
-                return 
-            # Calculate the new position
-            non_norm_pos = self.position * self.match_counter + position
-            self.match_counter += 1     # Update the counter
+        def update(self, match, line_sets):
+            # Position to update
+            upd_position = self.position * self.match_counter
+            # For all the lines involved in the match
+            for idx in match.indices:
+                if not idx in self.indices: # The line hasn't added
+                    self.indices.append(idx)    # Update the indices
+                    # Calculate the new position
+                    position2include = line_sets[idx[0]][idx[1]]
+                    flip = np.sum((self.position - position2include)**2) >\
+                           np.sum((self.position - np.flip(position2include, axis = 0))**2)
+                    if flip:
+                        upd_position += np.flip(position2include, axis = 0)
+                    else:
+                        upd_position += position2include
+                    self.match_counter += 1     # Update the counter
             # Update the position
-            self.position = non_norm_pos / self.match_counter
-            # Add the new indices
-            for index in line_indices:
-                if not( index in self.indices): # non repeated
-                    self.indices.append(index)
+            self.position = upd_position / self.match_counter
+
+        # Distance between two lines, and true if it needs to be flipped
+        @staticmethod
+        def distance(line_a, line_b):
+            # Calculate normal distance and the distance with one in reversed order
+            dist = np.sum((line_a - line_b)**2)
+            f_dist = np.sum((line_a - np.flip(line_b, axis = 0))**2)
+            return (dist, False) if f_dist > dist else (f_dist, True)
+
 
         # Substraction overload
         def __sub__(self, other):
-            return np.sum((self.position - other.position)**2)
-
+            # Distance
+            return LineMatcher.Match.distance(self.position, other.position)
 
     """
     Initialize the matcher
     @param max_distance_error is the max error to accept two lines similar
-    @param init_lines are the initial set of lines to insert
-    @param method the method to estimate the lines. Default is square euclidean
-                  
+    @param init_lines are the initial set of lines to insert                  
     """
-    def __init__(self, max_distance_error, matchs_number, init_line_sets = [],
-                 method = "sqeuclidean"):
+    def __init__(self, max_distance_error, matchs_number, init_line_sets = []):
         self.error = max_distance_error
         self.matchs_number = matchs_number
         self.__line_sets = init_line_sets
-        self.method = method
+        self.method = LineMatcher.Match.distance
+
+    # Compute the distances between the line sets f1 and f2. Robust to 
+    # direction. Returns the distance and the flipped distances
+    def __line_sets_distances(self, f1, f2):
+        # Extract distances between line means
+        return np.array( list( map( lambda a:
+                                  list( map(lambda b: self.method(a,b),
+                                            self.__line_sets[f2]) ),
+                              self.__line_sets[f1]) ) )
 
 
-    # Normalice a line inverting its order if needed
-    def __normalice_line(line):
-        # Compare the beginning to the end
-        gr_x = line[0][0] > line[-1][0]
-        eq_x = line[0][0] == line[-1][0]
-        gr_y = line[0][1] > line[-1][1]
-        # The beginning has to be lefter, and if they are equal, upper
-        if gr_x or (eq_x and gr_y):
-            return np.flip(line, axis = 0)
-        else:
-            return line
+    # Generate the matches given the f1 and f2 frames, and the lines matched
+    def __generate_matches(self, f1, f2, local_matches_idx, flip_value = []):
+        local_matches = []                          # Local matches found
+
+        # For each match
+        for a_l_idx, b_l_idx in local_matches_idx:
+            # Estimates position and stores the indices
+            if flip_value[a_l_idx, b_l_idx]:    # Inverts order if needed
+                match_position = self.__line_sets[f1][a_l_idx] \
+                                    + np.flip(self.__line_sets[f2][b_l_idx], 
+                                              axis = 0)
+            else:
+                match_position = self.__line_sets[f1][a_l_idx] \
+                                    + self.__line_sets[f2][b_l_idx]
+
+            match_position = np.divide(match_position, 2)
+            local_matches.append(
+                LineMatcher.Match(match_position,
+                                    [(f1, a_l_idx),(f2, b_l_idx)]))
+
+        return local_matches
+
+    # Extracts the local matches between 2 frames
+    def __extract_local_matches(self, f1, f2):
+        error = self.error*abs(f1-f2)
+        distances = self.__line_sets_distances(f1, f2)
+        # Filter distances lower than error
+        local_matches_idx = np.argwhere(distances[:,:,0] < error)
+        return self.__generate_matches(f1, f2, local_matches_idx, distances[:,:,1])
+
+
+    # Update the global matches with the local matches
+    def __update_global_matches(self, found_matches, local_matches):
+        it_matches = local_matches
+
+        # Update the general matches
+        if len(found_matches) == 0:     # Add the first match if it is empty
+            found_matches = [local_matches[0]]
+            it_matches = local_matches[1:]
+
+        for match in it_matches:
+            # Match with the matches
+            match_difs = np.array(
+                list(map(lambda x: x - match, found_matches)))
+            # It exists another match similar
+            most_likely = np.argwhere(match_difs[:,0] < self.error)
+            if len(most_likely) > 0:
+                # Update the existing match
+                found_matches[most_likely[0,0]].update(match,
+                                                     self.__line_sets)
+                # Combine the last match joined
+                for matches2combine in most_likely[0,1:]:
+                    found_matches[most_likely[0,0]].update(
+                        found_matches[matches2combine],
+                        self.__line_sets)
+                # Delete the combined matches
+                found_matches = np.delete(found_matches, most_likely[0,1:])
+            else:
+                # Create a new match
+                found_matches = np.append(found_matches, [match], axis = 0)
+        return found_matches
+
 
     """
     Add a new line set to performance the match
@@ -83,10 +149,7 @@ class LineMatcher(object):
     """
     def add_line_set(self, line_set):
         # Normalice all the lines and append it to the sets of lines
-        self.__line_sets.append(
-            list(
-                map(lambda x: LineMatcher.__normalice_line(x),
-                    line_set)))
+        self.__line_sets.append(line_set)
 
     """
     Returns all the lines related with the match <<match>>. The result is a 2D
@@ -111,50 +174,22 @@ class LineMatcher(object):
     def matches(self):
         # Extract the means of all lines in each set
         lines_len = len(self.__line_sets[0][0])
-        # Extracts all combinations of 2 to performing the distance calculus
-        set_indices = np.arange(0, len(self.__line_sets))
-        set_idx_combinations = list(combinations(set_indices, 2))
-        
+
         # All the matches found
-        found_matches = []
-        for (a, b) in set_idx_combinations:
-            # Extract distances between line means
-            distances = cdist(np.reshape(self.__line_sets[a],(-1,2*lines_len)),
-                              np.reshape(self.__line_sets[b],(-1,2*lines_len)),
-                              self.method)
-            # Filter distances lower than error
-            local_matches_idx = np.argwhere(distances < self.error*abs(a-b))
-            local_matches = []                          # Local matches found
+        found_matches = np.array([], dtype = object)
 
-            # For each match
-            for a_l_idx, b_l_idx in local_matches_idx:
-                # Estimates position and stores the indices
-                match_position = self.__line_sets[a][a_l_idx] \
-                                 + self.__line_sets[b][b_l_idx]
-                match_position = np.divide(match_position, 2)
-                local_matches.append(
-                    LineMatcher.Match(match_position,
-                                      [(a, a_l_idx),(b, b_l_idx)]))
-
-            # Update the general matches
-            iterable_matches = local_matches
-            if len(found_matches) == 0:     # Add the first match if it is empty
-                found_matches = [local_matches[0]]
-                it_matches = local_matches[1:]
-
-            for match in iterable_matches:
-                # Match with the matches
-                match_difs = np.array(
-                    list(map(lambda x: x - match, found_matches)))
-                # It exists another match similar
-                most_likely = np.argmin(match_difs)
-                if match_difs[int(most_likely)] < self.error:
-                    # Update the existing match
-                    found_matches[most_likely].update(match.position,
-                                                      match.indices)
-                else:
-                    # Create a new match
-                    found_matches.append(match)
+        # Extracts all combinations of 2 to performing the distance calculus
+        #set_indices = np.arange(0, len(self.__line_sets))
+        #set_idx_combinations = list(combinations(set_indices, 2))
+        #for (a, b) in set_idx_combinations:
+        for i in range(0, len(self.__line_sets) -1):
+            a = i
+            b = i + 1
+            # Extracts the local matches
+            local_matches = self.__extract_local_matches(a, b)
+            # Update the global matches
+            found_matches = self.__update_global_matches(found_matches,
+                                                         local_matches)
 
         # Return the filtered matches by the number of matches
         return list(filter(lambda x: x.match_counter >= self.matchs_number,

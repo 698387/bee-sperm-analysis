@@ -44,7 +44,7 @@ while i < len(sys.argv):
 if data_file == "":
     data_file = input('Name of the file: ')
 
-
+print("It will extract the data from \the file \""+ data_file + "\". Parameters:\n\t" + str(n_frames_to_use) + " frames to use")
 
 v = cv.VideoCapture(data_file)
 frames = []
@@ -57,10 +57,11 @@ if not v.isOpened():
 #original = cv.VideoWriter('original.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, (576, 768))
 cluster = sFCM(c=3, init_points = np.array([5, 100, 200]), NB = 3)
 preproc = Preprocess()
-cellMatcher = LineMatcher(max_distance_error = 10000, matchs_number = 3)
+cellMatcher = LineMatcher(max_distance_error = 3200, matchs_number = 1)
 fitted = False
 frames_used = 0
 # Extracts each frame
+print("Extracting information from each frame...")
 stop = -1
 while stop != 27:
     raw_image_state, raw_img = v.read()
@@ -70,27 +71,53 @@ while stop != 27:
         break
 
     gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
-
+    print("Frame " + str(frames_used+1) + " of " + str(n_frames_to_use) + ":")
     if not fitted:          # First iteration. Nothing is fitted
+        print("\tAdjusting preprocessing...",end="")
         preproc.ext_param(gray_img)             # Preprocess fitting
+        print("Done")
+        print("\tPreprocessing...",end="")
         norm_img = preproc.apply(gray_img)      # Preprocess
+        print("Done")
+        print("\tFitting cluster...",end="")
         cluster.fit(norm_img, spatial = True)   # Cluster fitting
         # Correct the cluster
         while not cluster_corrector(cluster, norm_img):
+            print("\n\tCluster fitting failed. Refitting...",end="")
             pass
+        print("Done")
         fitted = True
     else:
+        print("\tPreprocessing...",end="")
         norm_img = preproc.apply(gray_img)      # Preprocess
+        print("Done")
     
     frames.append(raw_img)
     # Clustering by layers
+    print("\tExtracting layers...",end="")
     pred_class = cluster.predict(norm_img, spatial = True).astype("ubyte")
+    print("Done")
     # Extract the morphological graph
-    g = extractGraph(pred_class, overlapping_info = cluster.c > 2, overlapping_thres = 0.8, n_pixels_angle = 9, debug = False)
+    print("\tExtracting graph...",end="")
+    g = extractGraph(pred_class, 
+                    overlapping_info = cluster.c > 2,
+                    overlapping_thres = 0.8,
+                    n_pixels_angle = 9,
+                    debug = True)
+    print("Done")
     # Find the cells in a single image
-    cell_paths = cells_from_single_image(g, n_points4cell=16, max_theta  = m.pi/4, max_evo_d = 0.1, max_length = 1000)
+    print("\tTransforming graph into cells...",end="")
+    cell_paths = cells_from_single_image(g,
+                                         n_points4cell=16,
+                                         max_theta  = m.pi/4,
+                                         max_evo_d = 0.1,
+                                         max_length = 1000)
+    print("Done")
+
     # Add the paths to the matcher
+    print("\tAdding cells to the matcher...",end="")
     cellMatcher.add_line_set(cell_paths)
+    print("Done")
 
     frames_used += 1
     if frames_used == n_frames_to_use:
@@ -113,13 +140,15 @@ while stop != 27:
 
 cv.destroyAllWindows()
 
-# After 5 first frames
+# Extract the matches
+print("Matching between frames...",end="")
 matches = cellMatcher.matches()
-print(len(matches))
+print("Done")
+
+# After n_frames_to_use first frames
 cell_printing = []
 for m in matches:
-    line = cellMatcher.match2line(m)
-    cell_printing.append(np.int32(np.flip(line[1][0], axis = 1)))
+    cell_printing.append(np.int32(np.flip(m.position, axis = 1)))
 
 cell_img = frames[0].copy()
 cv.polylines(cell_img, 
@@ -129,5 +158,23 @@ cv.polylines(cell_img,
 
 cv.imshow('Found cells', cell_img)
 cv.waitKey(0)
+
+# After n_frames_to_use first frames
+print(len(matches))
+for f in range(0, n_frames_to_use):
+    cell_printing = []
+    for m in matches:
+        line = cellMatcher.match2line(m)
+        idx = np.argmin(abs(np.array(line[0]) - f))
+        cell_printing.append(np.int32(np.flip(line[1][idx], axis = 1)))
+
+    cell_img = frames[f].copy()
+    cv.polylines(cell_img, 
+                    cell_printing, 
+                    False, 
+                    (0,0,255))
+
+    cv.imshow('Found cells', cell_img)
+    cv.waitKey(0)
 
 

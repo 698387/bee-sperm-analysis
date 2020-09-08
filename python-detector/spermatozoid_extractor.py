@@ -271,10 +271,12 @@ def cells_from_single_image(g, n_points4cell = 32,
             all_cell_path.append(s)
     # Returns the number of given points for each cell
     if n_points4cell > 0:
-        return list(map(lambda s: 
-                        s[:(len(s)//n_points4cell)*n_points4cell\
-                            :len(s)//n_points4cell], 
-                        filter(lambda s: len(s) > n_points4cell,
+        mult_indices = np.arange(0, n_points4cell-1)
+        return list(map(lambda cell:
+                        cell[np.append(
+                            (mult_indices*(len(cell)/n_points4cell))\
+                             .astype(int), [-1] )],
+                        filter(lambda cell: len(cell) >= n_points4cell,
                                all_cell_path)))
     else:
         return all_cell_path
