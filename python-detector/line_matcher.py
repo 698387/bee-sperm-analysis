@@ -20,30 +20,68 @@ class LineMatcher(object):
         """
         The match class, used for the LineMatcher to store and compare matches
         """
-        def __init__(self, position, line_indices):
-            self.position = position            # Match position
-            self.indices = line_indices         # Match indices for each frame
-            self.match_counter = 2              # Counter of the match
+        def __init__(self, positions, line_indices):
+            # Check the number of position and indices
+            if len(line_indices) != len(positions):
+                raise Exception("Not the same number of positions than indices")
+            if len(line_indices) < 2:
+                raise Exception("Matches only exists with 2 or more lines")
+            
+            self.indices = np.array(line_indices)# Match indices for each frame
+            # Speed and acceleration of the line matched
+            self.speed, self.acceleration = LineMatcher.Match.\
+                                            __estimate_mov(positions,
+                                                           self.indices)
+            self.positions = positions          # Match positions
+            # Counter of the match
+            self.match_counter = len(line_indices)              
+
+
+        # Given a set of line indices, and a set of positions, it caluclates
+        # the mean speed and acceleration
+        def __estimate_mov(positions, line_indices):
+            # Time order. The soonest the first
+            t_sorted_indices = np.argsort(line_indices, 
+                                          axis = 0)[:,0]
+            # Time diff
+            time_diff = np.diff(line_indices[t_sorted_indices, 0])\
+                          .reshape((-1,1,1))
+            # Speed of the match
+            typed_positions = np.array(positions, subok=True)
+            speed = np.diff(typed_positions[t_sorted_indices],
+                            axis = 0) / time_diff
+            # Estimate the acceleration
+            if len(line_indices) > 2:
+                acceleration =  np.diff(speed, axis = 0) / time_diff[:-1]
+            else:
+                acceleration = np.full((1,len(positions[0]),2), 0.0)
+            # Returns the mean speed and acceleration
+            return np.mean(speed, axis = 0), np.mean(acceleration, axis = 0)
+
                 
         # Update the current match with a new match
-        def update(self, match, line_sets):
-            # Position to update
-            upd_position = self.position * self.match_counter
+        def update(self, match):
+            counter = 0
             # For all the lines involved in the match
             for idx in match.indices:
-                if not idx in self.indices: # The line hasn't added
-                    self.indices.append(idx)    # Update the indices
-                    # Calculate the new position
-                    position2include = line_sets[idx[0]][idx[1]]
-                    flip = np.sum((self.position - position2include)**2) >\
-                           np.sum((self.position - np.flip(position2include, axis = 0))**2)
+                if not idx[0] in self.indices[:,0]:# The line hasn't been added
+                    # Update the indices
+                    self.indices = np.append(self.indices, [idx], axis = 0)    
+                    new_position = match.positions[counter]
+                    # Update the positions, robust to reverse order
+                    flip = np.sum((self.positions[0] - new_position)**2) >\
+                           np.sum((self.positions[0] \
+                                   - np.flip(new_position, axis = 0))**2)
                     if flip:
-                        upd_position += np.flip(position2include, axis = 0)
+                        self.positions.append(np.flip(new_position, axis = 0))
                     else:
-                        upd_position += position2include
+                        self.positions.append(new_position)
                     self.match_counter += 1     # Update the counter
-            # Update the position
-            self.position = upd_position / self.match_counter
+                counter += 1
+            # Update the speed and the acceleration
+            self.speed, self.acceleration = LineMatcher.Match.\
+                                            __estimate_mov(self.positions,
+                                                           self.indices)
 
         # Distance between two lines, and true if it needs to be flipped
         @staticmethod
@@ -53,11 +91,37 @@ class LineMatcher(object):
             f_dist = np.sum((line_a - np.flip(line_b, axis = 0))**2)
             return (dist, False) if f_dist > dist else (f_dist, True)
 
+        # Predicts the position at the moment time
+        def predict_pos(self, time):
+            # Extracts the elapsed time for each line in the current match
+            diff_time = np.array(
+                list(map(lambda t: time - t[0], self.indices)) )
+            # Repeat the speed and the acceleration of the match to calculate
+            #rep_ela_time = np.repeat(np.reshape([diff_time], (-1,1) ),
+            #                     len(self.positions[0]),
+            #                     axis = 1)
+            rep_ela_time = np.reshape( [[diff_time]],(-1,1,1) )
+            rep_speed = np.repeat([self.speed], self.match_counter, axis = 0)
+            rep_acc = np.repeat([self.acceleration], self.match_counter,
+                                axis = 0)
+            # Extracts the current position: s_0 + v*t + (a*t**2)/2
+            return np.mean(self.positions + rep_speed*rep_ela_time\
+                            + (rep_acc*rep_ela_time**2)/2,
+                               axis = 0)
+
+        # Returns the mean time of the match
+        def time(self):
+            return np.mean(self.indices[:,0])
 
         # Substraction overload
         def __sub__(self, other):
-            # Distance
-            return LineMatcher.Match.distance(self.position, other.position)
+            # Mean of the time and the positions
+            current_time = np.mean(other.indices, axis = 0)[0]
+            current_pos = np.mean(other.positions, axis = 0)
+            # Predict the position
+            pred_pos = self.predict_pos(current_time)
+            # Distance between the predicted and the seen positions
+            return LineMatcher.Match.distance(pred_pos, current_pos)
 
     """
     Initialize the matcher
@@ -88,17 +152,15 @@ class LineMatcher(object):
         for a_l_idx, b_l_idx in local_matches_idx:
             # Estimates position and stores the indices
             if flip_value[a_l_idx, b_l_idx]:    # Inverts order if needed
-                match_position = self.__line_sets[f1][a_l_idx] \
-                                    + np.flip(self.__line_sets[f2][b_l_idx], 
-                                              axis = 0)
+                match_positions = [ self.__line_sets[f1][a_l_idx],
+                                    np.flip(self.__line_sets[f2][b_l_idx], 
+                                            axis = 0) ]
             else:
-                match_position = self.__line_sets[f1][a_l_idx] \
-                                    + self.__line_sets[f2][b_l_idx]
-
-            match_position = np.divide(match_position, 2)
+                match_positions = [ self.__line_sets[f1][a_l_idx],
+                                    self.__line_sets[f2][b_l_idx] ]
             local_matches.append(
-                LineMatcher.Match(match_position,
-                                    [(f1, a_l_idx),(f2, b_l_idx)]))
+                LineMatcher.Match(match_positions,
+                                    [[f1, a_l_idx],[f2, b_l_idx]]))
 
         return local_matches
 
@@ -108,7 +170,8 @@ class LineMatcher(object):
         distances = self.__line_sets_distances(f1, f2)
         # Filter distances lower than error
         local_matches_idx = np.argwhere(distances[:,:,0] < error)
-        return self.__generate_matches(f1, f2, local_matches_idx, distances[:,:,1])
+        return self.__generate_matches(f1, f2, local_matches_idx,
+                                       distances[:,:,1])
 
 
     # Update the global matches with the local matches
@@ -120,16 +183,21 @@ class LineMatcher(object):
             found_matches = [local_matches[0]]
             it_matches = local_matches[1:]
 
+        # Predict the position from the old matches to the new ones
+        time = local_matches[0].time()
+        predicted_positions = np.array(list(map(lambda x: 
+                                                x.predict_pos(time),
+                                                found_matches)))
+
         for match in it_matches:
-            # Match with the matches
             match_difs = np.array(
-                list(map(lambda x: x - match, found_matches)))
+                list(map(lambda x: self.method(match.predict_pos(time), x),
+                         predicted_positions)))
             # It exists another match similar
             most_likely = np.argwhere(match_difs[:,0] < self.error)
             if len(most_likely) > 0:
                 # Update the existing match
-                found_matches[most_likely[0,0]].update(match,
-                                                     self.__line_sets)
+                found_matches[most_likely[0,0]].update(match)
                 # Combine the last match joined
                 for matches2combine in most_likely[0,1:]:
                     found_matches[most_likely[0,0]].update(
@@ -140,6 +208,9 @@ class LineMatcher(object):
             else:
                 # Create a new match
                 found_matches = np.append(found_matches, [match], axis = 0)
+                predicted_positions = np.append(predicted_positions,
+                                                [match.predict_pos(time)],
+                                                axis = 0)
         return found_matches
 
 

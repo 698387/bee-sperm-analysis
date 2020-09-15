@@ -8,6 +8,7 @@ import numpy as np
 import random as r
 import math as m
 import graph as G
+from itertools import compress
 
 # Given a vector of points v, it extracts the evolution per pixel of the 
 # direction of the vector
@@ -230,6 +231,49 @@ def __extract_spermatozoid(e, g, n_visited_edges, evolutions_edge,
     return spermatozoid_path
 
 
+# Remove the paths that are inside a longer path in the set
+def __filter_subpaths(segment_paths):
+    # Dictionary to find common subpaths
+    drawn_paths = {}      # Each key stores the value of the indices
+    idx = 0
+    # Fill the dictionary
+    for s in segment_paths:
+        for p in s:
+            if tuple(p) in drawn_paths:
+                drawn_paths[tuple(p)].append(idx)
+            else:
+                drawn_paths[tuple(p)] = [idx]
+        idx += 1
+
+    valid_segment_paths = np.full((len(segment_paths)), True)
+    # Consult the dictionary for those paths to be removed
+    # Montecarlo -> Not all points are used
+    mc_samples = 7
+    idx = 0
+    for s in segment_paths:
+        seen_indices = {idx}        # The seen indices on the drawn_paths
+        shared_point_indices = []   # The indices on the selected points
+        # Select mc_samples random elements
+        for p in r.choices(s, k=mc_samples):
+            # Append to the indices
+            shared_point_indices.append(drawn_paths[tuple(p)])
+            # Update the seen indices
+            for indices in drawn_paths[tuple(p)]:
+                seen_indices.add(indices)
+
+        seen_indices.remove(idx)    # No need to see the current segment
+        for outter_idx in seen_indices: # All the seen indices
+            # If they share all the points
+            if all([outter_idx in shared_point_idx \
+                    for shared_point_idx in shared_point_indices]): 
+                # Removes the current segment if it is shorter than the outter
+                if len(segment_paths[outter_idx]) > len(segment_paths[idx]):
+                    valid_segment_paths[idx] = False
+                    break
+        idx += 1
+    # Return the valid segments
+    return list(compress(segment_paths, valid_segment_paths))
+        
 
 """
 Given the morphological graph g, it extracts all the spermatozoids it can find
@@ -269,6 +313,8 @@ def cells_from_single_image(g, n_points4cell = 32,
             s = __extract_spermatozoid(e, g, n_visited_edges, evolutions_edge, 
                            max_theta, max_evo_d, max_length)
             all_cell_path.append(s)
+
+    filtered_cell_paths = __filter_subpaths(all_cell_path)
     # Returns the number of given points for each cell
     if n_points4cell > 0:
         mult_indices = np.arange(0, n_points4cell-1)
@@ -277,7 +323,7 @@ def cells_from_single_image(g, n_points4cell = 32,
                             (mult_indices*(len(cell)/n_points4cell))\
                              .astype(int), [-1] )],
                         filter(lambda cell: len(cell) >= n_points4cell,
-                               all_cell_path)))
+                               filtered_cell_paths)))
     else:
-        return all_cell_path
+        return filtered_cell_paths 
 
