@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{d70b317d-9375-4b03-bab5-0d22ef76044a}</ProjectGuid>
     <ProjectHome />
-    <StartupFile>python-detector\cell_detector.py</StartupFile>
+    <StartupFile>automatyzed_drone_sperm_analysis.py</StartupFile>
     <SearchPath />
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
@@ -16,7 +16,7 @@
     <InterpreterArguments>
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
-    <CommandLineArguments>D:\Documents\Trabajos\MasterIngInf\TFM\videos\2.avi</CommandLineArguments>
+    <CommandLineArguments>D:\Documents\Trabajos\MasterIngInf\TFM\videos\3.avi</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
   <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
@@ -24,6 +24,9 @@
     <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' ">10.0</VisualStudioVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="automatyzed_drone_sperm_analysis.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="python-detector\CellAsCircles.py" />
     <Compile Include="python-detector\cell_detector.py" />
     <Compile Include="python-detector\CellPointDetector.py" />
