@@ -8,7 +8,7 @@ Description: It extracts all the lines from a skeleton image. The image
 import numpy as np
 import math as m
 import cv2 as cv
-from graph import Graph
+from python_detector.graph import Graph
 
 __debug_graph = False
 

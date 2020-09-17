@@ -2,18 +2,14 @@ import cv2 as cv
 import sys
 import statistics as st
 import numpy as np
-from line_decoupler import decouple_lines, follow_line
-import math
-import itertools as it
-from scipy.spatial.distance import cdist
-from sklearn.neighbors import KDTree
+from python_detector.line_decoupler import decouple_lines, follow_line
 import random as r
-from sFCM import sFCM, cluster_corrector
-from image_preprocess import Preprocess
-from graph_extractor import extractGraph
-from spermatozoid_extractor import cells_from_single_image
-from line_matcher import LineMatcher
-import math as m
+from python_detector.sFCM import sFCM, cluster_corrector
+from python_detector.image_preprocess import Preprocess
+from python_detector.graph_extractor import extractGraph
+from python_detector.spermatozoid_extractor import cells_from_single_image
+from python_detector.line_matcher import LineMatcher
+import math
 
 # list of colors for printing
 color_values = [0, 127, 255]
@@ -29,8 +25,13 @@ Given the video file, it extracts the number of cells and the moving cells
 @param data_file Is the video file to extracts the info from
 @n_frames_to_use Is the number of frames to extract the info
 """
-def sperm_movility_analysis(data_file = "", n_frames_to_use = 7,
-                            view_frames = False):
+def sperm_movility_analysis(data_file = "", 
+                            n_frames_to_use = 7,
+                            view_frames = False,
+                            min_length = 0.0,
+                            scale = 0.0,
+                            min_movement = 0.5,
+                            video_fps = 0.0):
     # If there is no parameter, it returns an exception
     if data_file == "":
         raise NameError
@@ -45,6 +46,22 @@ def sperm_movility_analysis(data_file = "", n_frames_to_use = 7,
     if not v.isOpened():
         print('File couldn\'t be opened')
         exit()
+
+    # Transform all values into pixels and frame rate
+    if video_fps == 0.0:
+        fps = v.get(cv.CAP_PROP_FPS)
+    else:
+        fps = video_fps
+
+    if scale > 0.0:
+        pixel_size = scale / v.get(cv.CAP_PROP_FRAME_HEIGHT)
+        pixel_min_length = min_length / pixel_size
+        pixel_min_mov = min_movement / (fps * pixel_size)
+    else:
+        pixel_size = 0
+        pixel_min_length = 0
+        pixel_min_mov = 0
+
 
     # Cluster instance
     cluster = sFCM(c=3, init_points = np.array([5, 100, 200]), NB = 3)
@@ -99,13 +116,13 @@ def sperm_movility_analysis(data_file = "", n_frames_to_use = 7,
                         overlapping_info = cluster.c > 2,
                         overlapping_thres = 0.8,
                         n_pixels_angle = 9,
-                        debug = True)
+                        debug = view_frames)
         print("Done")
         # Find the cells in a single image
         print("\tTransforming graph into cells...",end="")
         cell_paths = cells_from_single_image(g,
                                              n_points4cell=16,
-                                             max_theta  = m.pi/4,
+                                             max_theta  = math.pi/4,
                                              max_evo_d = 0.1,
                                              max_length = 700)
         print("Done")
@@ -141,8 +158,28 @@ def sperm_movility_analysis(data_file = "", n_frames_to_use = 7,
     matches = cellMatcher.matches()
     print("Done")
 
+    # Filter by length
+    matches = list(filter(lambda x:
+                          np.sum( 
+                              np.diff(
+                                  np.mean(x.positions, axis = 0)
+                                  )
+                              )**2 > pixel_min_length**2,
+                          matches))
+    # Speed modulus 
+    speed_mod = np.array(list( map(lambda x:
+                                   np.mean(np.linalg.norm(x.speed, axis = 1),
+                                           axis = 0),
+                                   matches) ) )
+    # Filter by movement
+    moving_matches_idx = np.argwhere(speed_mod > pixel_min_mov)
+    moving_matches = np.array(matches)[moving_matches_idx]
+    # Mean speed
+    mean_speed = np.mean(speed_mod[moving_matches_idx])
+
     # Draws the results if indicated
-    while stop == None and view_frames:
+    stop = -1
+    while stop < 0 and view_frames:
         # After n_frames_to_use first frames
         for f in range(0, n_frames_to_use):
             cell_printing = []
@@ -157,11 +194,15 @@ def sperm_movility_analysis(data_file = "", n_frames_to_use = 7,
                             False, 
                             (0,0,255))
 
-            cv.imshow('Found cells', cell_img)
+            cv.imshow('Found cells (press any key to close)', cell_img)
             stop = cv.waitKey(400)
+            if stop > 0:
+                break
+    cv.destroyAllWindows()
 
-    return {"cell_number": len(matches),
-            "moving_cells": len(list(filter(lambda x: x.speed > 0.5)))}
+    return {"Number of detected cells": len(matches),
+            "Number of moving cells": len(moving_matches),
+            "Mean of movement of moving cells \u03BCm/s": mean_speed*fps*pixel_size}
 
 
      

@@ -7,7 +7,7 @@ Description: Extracts from a single graph, all the spermatozoids it can find
 import numpy as np
 import random as r
 import math as m
-import graph as G
+import python_detector.graph as G
 from itertools import compress
 
 # Given a vector of points v, it extracts the evolution per pixel of the 

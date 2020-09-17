@@ -176,6 +176,11 @@ class LineMatcher(object):
 
     # Update the global matches with the local matches
     def __update_global_matches(self, found_matches, local_matches):
+        # No local matches
+        if not len(local_matches):
+            return found_matches    # No changes
+
+        # Iterator of the matches
         it_matches = local_matches
 
         # Update the general matches

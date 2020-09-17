@@ -27,34 +27,46 @@
     <Compile Include="automatyzed_drone_sperm_analysis.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="python-detector\CellAsCircles.py" />
-    <Compile Include="python-detector\cell_detector.py" />
-    <Compile Include="python-detector\CellPointDetector.py" />
-    <Compile Include="python-detector\CellPointDetectorMontecarlo.py" />
-    <Compile Include="python-detector\line_matcher.py">
+    <Compile Include="configuration_app.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="python-detector\graph.py">
+    <Compile Include="file_manager_app.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="python-detector\image_preprocess.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="python-detector\line_decoupler.py" />
-    <Compile Include="python-detector\graph_extractor.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="python-detector\sFCM.py" />
-    <Compile Include="python-detector\skeletonize.py" />
-    <Compile Include="python-detector\spermatozoid_extractor.py">
-      <SubType>Code</SubType>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="python-detector" />
+    <Compile Include="python_detector\CellAsCircles.py" />
+    <Compile Include="python_detector\CellPointDetector.py" />
+    <Compile Include="python_detector\CellPointDetectorMontecarlo.py" />
+    <Compile Include="python_detector\cell_detector.py" />
+    <Compile Include="python_detector\graph.py" />
+    <Compile Include="python_detector\graph_extractor.py" />
+    <Compile Include="python_detector\image_preprocess.py" />
+    <Compile Include="python_detector\line_decoupler.py" />
+    <Compile Include="python_detector\line_matcher.py" />
+    <Compile Include="python_detector\sFCM.py" />
+    <Compile Include="python_detector\skeletonize.py" />
+    <Compile Include="python_detector\spermatozoid_extractor.py" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="python_detector\" />
+    <Folder Include="python_detector\__pycache__\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="python_detector\__pycache__\CellPointDetector.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\cell_detector.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\graph.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\GraphExtractor.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\graph_extractor.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\ImagePreprocess.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\image_preprocess.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\line_decoupler.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\line_extractor.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\line_matcher.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\sFCM.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\skeletonize.cpython-38.pyc" />
+    <Content Include="python_detector\__pycache__\spermatozoid_extractor.cpython-38.pyc" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
 </Project>
