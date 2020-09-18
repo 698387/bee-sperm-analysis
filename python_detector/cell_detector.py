@@ -1,9 +1,6 @@
 import cv2 as cv
 import sys
-import statistics as st
 import numpy as np
-from python_detector.line_decoupler import decouple_lines, follow_line
-import random as r
 from python_detector.sFCM import sFCM, cluster_corrector
 from python_detector.image_preprocess import Preprocess
 from python_detector.graph_extractor import extractGraph
