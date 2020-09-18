@@ -1,11 +1,13 @@
 from tkinter import *
 from tkinter import font
+from tkinter import filedialog
 from tkinter.ttk import Progressbar
 from configuration_app import Configuration
 from file_manager_app import VideoFileManager
 import time, threading, queue
 from multiprocessing import Process
 from python_detector.cell_detector import sperm_movility_analysis
+import xlwt
 
 
 class Application(Frame):
@@ -23,12 +25,12 @@ class Application(Frame):
         self.video_manager.pack(expand=1, fill = BOTH, side = LEFT)
         self.conf = Configuration(self)
         self.conf.pack(expand = 1, fill = BOTH, side = TOP)
-        self.executing = False
         self.analyze = Button(self,
                               text = "Start analyzing",
                               font = font.Font(weight = font.BOLD),
                               command = self.analyze_videos
-                              ).pack(expand = 1, side = BOTTOM)
+                              )
+        self.analyze.pack(expand = 1, side = BOTTOM)
 
 
     # Launch the analysis
@@ -66,6 +68,7 @@ class Application(Frame):
             # Stops the bar
             self.progressbar.stop()
             self.progressbar.destroy()
+            self.analyze.pack(expand = 1, side = BOTTOM)
             # Print the results
             self.print_results()
         else:  # Re do the track
@@ -76,19 +79,67 @@ class Application(Frame):
         # Creates a window
         self.result_window = Toplevel(self)
         self.result_window.title("Analysis result")
+        # Button for storing the data
+        self.save_data = Button(self.result_window,
+                                text = "Save Data",
+                                command = self.save_result_manager
+                                )
+        self.save_data.pack()
+        # Text widget for writting the result
         self.result_text = Text(self.result_window)
         self.result_text.pack()
+        # Get the result from the thread
         self.analysis_result = self.q.get()
+        # Prints the result
         for r in self.analysis_result:
             self.result_text.insert(END, r[0] + "\n")
             for key, value in r[1].items():
                 self.result_text.insert(END, "\t" + key + ": ")
                 self.result_text.insert(END, "\t" + str(value) + "\n ")
+        # Disable the writting
         self.result_text["state"] = DISABLED
 
+    # Save result manager, with widget
+    def save_result_manager(self):
+        # Ask the user for a file
+        files = [('Excel files', '*.xls'),  
+                    ('All files', '*.*')] 
+        file = filedialog.asksaveasfile(filetypes = files,
+                                        defaultextension = files)
+        # Save the file
+        self.save_result(file.name)
+
+    # Save the analysis result in the file f
+    def save_result(self, f = "result.xls"):
+        # New excel file
+        wb = xlwt.Workbook()
+        # Add new sheet
+        ws = wb.add_sheet('Analysis Result')
+        # Meaning of the values
+        ws.write(0, 0, "Video file")
+        column_counter = 1
+        for key in self.analysis_result[0][1].keys():
+            ws.write(0, column_counter, key)
+            column_counter += 1
+        # Each video analyzed
+        row_counter = 1
+        for result in self.analysis_result:
+            # File name
+            ws.write(row_counter, 0, result[0])
+            column_counter = 1
+            # Values from analysis
+            for values in result[1].values():
+                ws.write(row_counter, column_counter, values)
+                column_counter += 1
+            row_counter += 1
+
+        # Check the file name extension
+        wb.save(f)
 
     # Analyze all the indicated videos
     def analyze_videos(self):
+        # Disables the analyze button
+        self.analyze.pack_forget()
         # Launch the process of analyzing
         self.t, self.q = Application.launch_thread(Application.launch_analysis,
                                       args = (self.video_manager.video_files,
@@ -102,7 +153,7 @@ class Application(Frame):
         self.progressbar = Progressbar(self,
                                        orient = HORIZONTAL,
                                        mode='indeterminate')
-        self.progressbar.pack()
+        self.progressbar.pack(expand = 1, side = BOTTOM)
         self.progressbar.start()
         # Track the thread every 0.5 seconds
         self.after(500, self.thread_track)

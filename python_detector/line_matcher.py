@@ -254,10 +254,7 @@ class LineMatcher(object):
         # All the matches found
         found_matches = np.array([], dtype = object)
 
-        # Extracts all combinations of 2 to performing the distance calculus
-        #set_indices = np.arange(0, len(self.__line_sets))
-        #set_idx_combinations = list(combinations(set_indices, 2))
-        #for (a, b) in set_idx_combinations:
+        # Matches between consecutive frames
         for i in range(0, len(self.__line_sets) -1):
             a = i
             b = i + 1

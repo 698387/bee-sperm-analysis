@@ -67,6 +67,7 @@ class VideoFileManager(Frame):
             self.video_files.append(new_file)
             self.video_file_viewer.insert(END, new_file)
 
+
     # Delete the selected video
     def video_deselecter(self):
         deleted_counter = 0
@@ -76,6 +77,8 @@ class VideoFileManager(Frame):
             # Delete the video from the listbox
             self.video_file_viewer.delete(delete_idx - deleted_counter)
             deleted_counter += 1
+        # Update the deleter selection
+        self.update_deleter_state()
 
     # Clear all the videos
     def video_clear(self):
@@ -83,9 +86,13 @@ class VideoFileManager(Frame):
         self.video_file_viewer.delete(0, END)
         self.video_deleter["state"] = DISABLED
 
-    # Behaviour when user mark videos in the video viewer
-    def on_video_viewer_selection(self, event):
+    # Set the deleter button normal or disabled depending on the selection
+    def update_deleter_state(self):
         if len(list(self.video_file_viewer.curselection())):
             self.video_deleter["state"] = NORMAL
         else:
             self.video_deleter["state"] = DISABLED
+
+    # Behaviour when user mark videos in the video viewer
+    def on_video_viewer_selection(self, event):
+        self.update_deleter_state()

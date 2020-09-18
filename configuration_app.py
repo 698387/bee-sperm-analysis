@@ -41,7 +41,7 @@ class Configuration(Frame):
         self.window.protocol("WM_DELETE_WINDOW", self.on_quit)
 
         # Scale of the image
-        self.scale_l = Label(self.window, text = "Scale (height of image)*:")
+        self.scale_l = Label(self.window, text = "Scale (pixel size)*:")
         self.scale_l.grid(row = 0, sticky = E)
         self.scale_var = DoubleVar()
         self.scale_var.set(self.scale)

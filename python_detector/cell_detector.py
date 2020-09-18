@@ -54,9 +54,8 @@ def sperm_movility_analysis(data_file = "",
         fps = video_fps
 
     if scale > 0.0:
-        pixel_size = scale / v.get(cv.CAP_PROP_FRAME_HEIGHT)
-        pixel_min_length = min_length / pixel_size
-        pixel_min_mov = min_movement / (fps * pixel_size)
+        pixel_min_length = min_length / scale
+        pixel_min_mov = min_movement / (fps * scale)
     else:
         pixel_size = 0
         pixel_min_length = 0
@@ -202,7 +201,7 @@ def sperm_movility_analysis(data_file = "",
 
     return {"Number of detected cells": len(matches),
             "Number of moving cells": len(moving_matches),
-            "Mean of movement of moving cells \u03BCm/s": mean_speed*fps*pixel_size}
+            "Mean of movement of moving cells \u03BCm/s": mean_speed*fps*scale}
 
 
      
