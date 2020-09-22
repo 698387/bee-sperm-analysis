@@ -29,6 +29,7 @@ def sperm_movility_analysis(data_file = "",
                             scale = 0.0,
                             min_movement = 0.5,
                             video_fps = 0.0):
+    n_points_cell = 16      # Number of points for each cell
     # If there is no parameter, it returns an exception
     if data_file == "":
         raise NameError
@@ -64,7 +65,8 @@ def sperm_movility_analysis(data_file = "",
     # Preprocess instance
     preproc = Preprocess()
     # Matcher instance
-    cellMatcher = LineMatcher(max_distance_error = 3200, matchs_number = 1)
+    cellMatcher = LineMatcher(max_distance_error = n_points_cell * 1000, matchs_number = 3,
+                              init_line_sets=[])
     # Iteration variables
     fitted = False
     frames_used = 0
@@ -117,7 +119,7 @@ def sperm_movility_analysis(data_file = "",
         # Find the cells in a single image
         print("\tTransforming graph into cells...",end="")
         cell_paths = cells_from_single_image(g,
-                                             n_points4cell=16,
+                                             n_points4cell=n_points_cell,
                                              max_theta  = math.pi/4,
                                              max_evo_d = 0.1,
                                              max_length = 700)
