@@ -175,7 +175,7 @@ class LineMatcher(object):
 
 
     # Update the global matches with the local matches
-    def __update_global_matches(self, found_matches, local_matches):
+    def __update_global_matches(self, found_matches, local_matches, time):
         # No local matches
         if not len(local_matches):
             return found_matches    # No changes
@@ -189,7 +189,6 @@ class LineMatcher(object):
             it_matches = local_matches[1:]
 
         # Predict the position from the old matches to the new ones
-        time = local_matches[0].time()
         predicted_positions = np.array(list(map(lambda x: 
                                                 x.predict_pos(time),
                                                 found_matches)))
@@ -262,7 +261,8 @@ class LineMatcher(object):
             local_matches = self.__extract_local_matches(a, b)
             # Update the global matches
             found_matches = self.__update_global_matches(found_matches,
-                                                         local_matches)
+                                                         local_matches,
+                                                         (a+b)/2)
 
         # Return the filtered matches by the number of matches
         return list(filter(lambda x: x.match_counter >= self.matchs_number,

@@ -65,7 +65,7 @@ def sperm_movility_analysis(data_file = "",
     # Preprocess instance
     preproc = Preprocess()
     # Matcher instance
-    cellMatcher = LineMatcher(max_distance_error = n_points_cell * 1000, matchs_number = 3,
+    cellMatcher = LineMatcher(max_distance_error = n_points_cell * 225, matchs_number = 3,
                               init_line_sets=[])
     # Iteration variables
     fitted = False
