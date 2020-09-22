@@ -59,6 +59,7 @@ class Application(Frame):
         q = queue.Queue()
         t = threading.Thread(target = lambda que, f_args: que.put(f(*f_args)),
                              args = (q, args))
+        t.daemon = True
         t.start()
         return t, q
 
