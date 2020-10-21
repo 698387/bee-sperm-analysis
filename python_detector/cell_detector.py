@@ -28,7 +28,8 @@ def sperm_movility_analysis(data_file = "",
                             min_length = 0.0,
                             scale = 0.0,
                             min_movement = 0.5,
-                            video_fps = 0.0):
+                            video_fps = 0.0,
+                            area_filter = 0.0):
     n_points_cell = 16      # Number of points for each cell
     # If there is no parameter, it returns an exception
     if data_file == "":
@@ -54,18 +55,19 @@ def sperm_movility_analysis(data_file = "",
     if scale > 0.0:
         pixel_min_length = min_length / scale
         pixel_min_mov = min_movement / (fps * scale)
+        max_area = area_filter/scale
     else:
-        pixel_size = 0
         pixel_min_length = 0
         pixel_min_mov = 0
+        max_area = 0
 
 
     # Cluster instance
     cluster = sFCM(c=3, init_points = np.array([5, 100, 200]), NB = 3)
     # Preprocess instance
-    preproc = Preprocess()
+    preproc = Preprocess(max_area = max_area)
     # Matcher instance
-    cellMatcher = LineMatcher(max_distance_error = n_points_cell * 225, matchs_number = 3,
+    cellMatcher = LineMatcher(max_distance_error = n_points_cell * 1000, matchs_number = 2,
                               init_line_sets=[])
     # Iteration variables
     fitted = False
@@ -95,7 +97,10 @@ def sperm_movility_analysis(data_file = "",
             # Correct the cluster
             while not cluster_corrector(cluster, norm_img):
                 print("\n\tCluster fitting failed. Refitting...",end="")
-                pass
+
+            if cluster.c == 1:
+                print("Clustering failed. Analisys will finish")
+                return {}
             print("Done")
             fitted = True
         else:
@@ -107,6 +112,8 @@ def sperm_movility_analysis(data_file = "",
         # Clustering by layers
         print("\tExtracting layers...",end="")
         pred_class = cluster.predict(norm_img, spatial = True).astype("ubyte")
+        #cv.imshow("cluster", ((pred_class > 0) * 255).astype("ubyte"))
+        #cv.waitKey(0)
         print("Done")
         # Extract the morphological graph
         print("\tExtracting graph...",end="")
@@ -156,14 +163,19 @@ def sperm_movility_analysis(data_file = "",
     matches = cellMatcher.matches()
     print("Done")
 
+    # Extracts each cell length
+    len_matches = np.array(list( map( 
+                        lambda x: 
+                        math.sqrt(np.mean(
+                            np.sum(
+                                np.diff( x.positions, axis = 1) **2,
+                                axis = (1,2)
+                            )
+                        )),  matches) )) 
     # Filter by length
-    matches = list(filter(lambda x:
-                          np.sum( 
-                              np.diff(
-                                  np.mean(x.positions, axis = 0)
-                                  )
-                              )**2 > pixel_min_length**2,
-                          matches))
+    matches = np.array(matches)[
+                    np.argwhere(len_matches > pixel_min_length )].ravel()
+    len_matches = list(filter(lambda x: x > pixel_min_length, len_matches))
     # Speed modulus 
     speed_mod = np.array(list( map(lambda x:
                                    np.mean(np.linalg.norm(x.speed, axis = 1),
@@ -200,7 +212,11 @@ def sperm_movility_analysis(data_file = "",
 
     return {"Number of detected cells": len(matches),
             "Number of moving cells": len(moving_matches),
-            "Mean of movement of moving cells \u03BCm/s": mean_speed*fps*scale}
+            "Moving percentage (%)": (len(moving_matches)/len(matches)) * 100,
+            "Mean of movement of moving cells \u03BCm/s": mean_speed*fps*scale,
+            "Minimum length": min(len_matches),
+            "Maximum length": max(len_matches),
+            "Mean length": np.mean(len_matches)}
 
 
      

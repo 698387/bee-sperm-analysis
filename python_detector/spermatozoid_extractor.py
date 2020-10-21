@@ -54,7 +54,6 @@ def __similarity_value(edge, vertex_type4edge, theta_edge, v, g, theta_cell,
     evo_dist = np.dot(evo_diff, evo_diff)
 
     # Calculates the value
-    #if delta_theta > max_theta or evo_dist > max_evo_dist:
     if delta_theta > max_theta or evo_dist > max_evo_dist:
         return -1
     
@@ -63,8 +62,8 @@ def __similarity_value(edge, vertex_type4edge, theta_edge, v, g, theta_cell,
     angle_value = (1-(delta_theta / max_theta))
     evo_value = (1-(evo_dist / max_evo_dist))
     edge_len = len(g.edges[edge].path())
-    len_value = min(1, edge_len / g.n_incident_p)
-    return (angle_value + evo_value) * n_visited_value / len_value
+    len_value = max(1,  g.n_incident_p / edge_len)
+    return (angle_value + evo_value) * n_visited_value * len_value
 
 
 

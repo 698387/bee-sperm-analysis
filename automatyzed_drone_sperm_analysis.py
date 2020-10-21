@@ -30,12 +30,13 @@ class Application(Frame):
                               font = font.Font(weight = font.BOLD),
                               command = self.analyze_videos
                               )
+        self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.analyze.pack(expand = 1, side = BOTTOM)
 
 
     # Launch the analysis
     def launch_analysis(video_files, min_lenght, min_movement, scale,
-                        frame_rate, n_frames_to_use, view_frames):
+                        frame_rate, n_frames_to_use, view_frames, area_filter):
         all_results = []
         # Analyze each given video
         for video in video_files:
@@ -46,7 +47,8 @@ class Application(Frame):
                                         scale = scale,
                                         video_fps = frame_rate,
                                         n_frames_to_use = n_frames_to_use,
-                                        view_frames = view_frames)
+                                        view_frames = view_frames,
+                                        area_filter = area_filter)
 
             # Write the results in text
             all_results.append([video, result])
@@ -108,7 +110,8 @@ class Application(Frame):
         file = filedialog.asksaveasfile(filetypes = files,
                                         defaultextension = files)
         # Save the file
-        self.save_result(file.name)
+        if file != None:
+            self.save_result(file.name)
 
     # Save the analysis result in the file f
     def save_result(self, f = "result.xls"):
@@ -119,6 +122,10 @@ class Application(Frame):
         # Meaning of the values
         ws.write(0, 0, "Video file")
         column_counter = 1
+        # No results
+        if len(self.analysis_result) == 0:
+            wb.save(f)
+            return  # exit
         for key in self.analysis_result[0][1].keys():
             ws.write(0, column_counter, key)
             column_counter += 1
@@ -149,7 +156,8 @@ class Application(Frame):
                                               self.conf.scale,
                                               self.conf.frame_rate,
                                               self.conf.n_frames,
-                                              self.conf.view_images))
+                                              self.conf.view_images,
+                                              self.conf.particles_max_area))
         # Initialize a progress bar
         self.progressbar = Progressbar(self,
                                        orient = HORIZONTAL,
@@ -159,6 +167,11 @@ class Application(Frame):
         # Track the thread every 0.5 seconds
         self.after(500, self.thread_track)
 
+
+    # When the window is destroyed
+    def on_closing(self):
+        self.conf.write_conf()
+        self.master.destroy()
 
 def main():
     root = Tk()

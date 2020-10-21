@@ -18,12 +18,13 @@ class Preprocess(object):
     """
     Init function
     """
-    def __init__(self):
+    def __init__(self, max_area):
         self.mean = 0
         self.stdev = 0
         self.min = 0
         self.max = 0
         self.inverted = False
+        self.max_area = max_area
 
     """
     It returns a linear normalization of the image
@@ -59,19 +60,15 @@ class Preprocess(object):
     @param img. Image to extract the parameters from
     """
     def ext_param(self, img):
+        # Invert needed
         self.inverted = st.skew(img.ravel()) > 0
         if self.inverted:
-            self.mean = np.mean(img)
-            self.stdev = np.std(img)
-            self.min = np.min(img)
-            self.max = np.max(img)
-        else:
             aux_img = self.__invert(img)
-            self.mean = np.mean(aux_img)
-            self.stdev = np.std(aux_img)
-            self.min = np.min(aux_img)
-            self.max = np.max(aux_img)
-        
+        # Extract the parameters
+        self.mean = np.mean(img)
+        self.stdev = np.std(img)
+        self.min = np.min(img)
+        self.max = np.max(img)        
 
     """
     Preprocess the image with the given method
@@ -79,10 +76,28 @@ class Preprocess(object):
     @param linear. Performance linear normalization
     """
     def apply(self, img):
+        # Normalize the image. It inverts if needed
         if not self.inverted:
-            return self.__z_score_normalization(self.__invert(img))
+            norm_img = self.__z_score_normalization(self.__invert(img))
         else:
-            return self.__z_score_normalization(img)
+            norm_img = self.__z_score_normalization(img)
+
+        # Filter the particles
+        if self.max_area > 0:
+            # Binary image otsu method
+            _, thres_img = cv.threshold(norm_img, 200, 255, cv.THRESH_BINARY)
+            # Extract the contours
+            contours, hierarchy = cv.findContours(thres_img,
+                                                  cv.RETR_TREE,
+                                                  cv.CHAIN_APPROX_SIMPLE)
+            # Filter the contours by the area
+            non_valid_contours = list(filter(
+                lambda cnt:  cv.contourArea(cnt) > self.max_area, contours ))
+            # Delete the selected contours from the image
+            cv.fillPoly(norm_img, non_valid_contours, (0))
+            cv.dilate(norm_img,np.ones((5,5), dtype = "ubyte"))
+
+        return norm_img
 
 
 

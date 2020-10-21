@@ -97,17 +97,16 @@ class LineMatcher(object):
             diff_time = np.array(
                 list(map(lambda t: time - t[0], self.indices)) )
             # Repeat the speed and the acceleration of the match to calculate
-            #rep_ela_time = np.repeat(np.reshape([diff_time], (-1,1) ),
-            #                     len(self.positions[0]),
-            #                     axis = 1)
             rep_ela_time = np.reshape( [[diff_time]],(-1,1,1) )
             rep_speed = np.repeat([self.speed], self.match_counter, axis = 0)
             rep_acc = np.repeat([self.acceleration], self.match_counter,
                                 axis = 0)
             # Extracts the current position: s_0 + v*t + (a*t**2)/2
-            return np.mean(self.positions + rep_speed*rep_ela_time\
-                            + (rep_acc*rep_ela_time**2)/2,
-                               axis = 0)
+            #return np.mean(self.positions + rep_speed*rep_ela_time\
+            #                + (rep_acc*rep_ela_time**2)/2,
+            #                   axis = 0)
+            return np.mean(self.positions + rep_speed*rep_ela_time,
+                    axis = 0)
 
         # Returns the mean time of the match
         def time(self):
@@ -198,6 +197,7 @@ class LineMatcher(object):
                 list(map(lambda x: self.method(match.predict_pos(time), x),
                          predicted_positions)))
             # It exists another match similar
+            kk = np.argwhere(match_difs[:,0] < self.error)
             most_likely = np.argwhere(match_difs[:,0] < self.error)
             if len(most_likely) > 0:
                 # Update the existing match
@@ -247,7 +247,11 @@ class LineMatcher(object):
     Returns all the matches given the parameters
     """
     def matches(self):
-        # Extract the means of all lines in each set
+        # It has found any 
+        if all(list(map(lambda x: len(x) == 0, self.__line_sets))):
+            return []
+
+        # Extract the len of all the lines in the line sets
         lines_len = len(self.__line_sets[0][0])
 
         # All the matches found
