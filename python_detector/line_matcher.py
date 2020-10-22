@@ -7,6 +7,7 @@ Description: Implementation of the lineMatcher class, used to match different
 
 import numpy as np
 from itertools import combinations, repeat
+import cv2 as cv
 
 class LineMatcher(object):
     """
@@ -192,23 +193,25 @@ class LineMatcher(object):
                                                 x.predict_pos(time),
                                                 found_matches)))
 
+        # For each local match
         for match in it_matches:
             match_difs = np.array(
                 list(map(lambda x: self.method(match.predict_pos(time), x),
                          predicted_positions)))
             # It exists another match similar
-            kk = np.argwhere(match_difs[:,0] < self.error)
             most_likely = np.argwhere(match_difs[:,0] < self.error)
             if len(most_likely) > 0:
                 # Update the existing match
                 found_matches[most_likely[0,0]].update(match)
                 # Combine the last match joined
-                for matches2combine in most_likely[0,1:]:
+                for matches2combine in most_likely[1:,0]:
                     found_matches[most_likely[0,0]].update(
-                        found_matches[matches2combine],
-                        self.__line_sets)
+                        found_matches[matches2combine])
                 # Delete the combined matches
-                found_matches = np.delete(found_matches, most_likely[0,1:])
+                found_matches = np.delete(found_matches, most_likely[1:,0])
+                predicted_positions = np.delete(predicted_positions,
+                                                most_likely[1:,0],
+                                                axis = 0)
             else:
                 # Create a new match
                 found_matches = np.append(found_matches, [match], axis = 0)
