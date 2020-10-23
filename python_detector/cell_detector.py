@@ -1,7 +1,7 @@
 import cv2 as cv
 import sys
 import numpy as np
-from python_detector.sFCM import sFCM, cluster_corrector
+from python_detector.sFCM import sFCM
 from python_detector.image_preprocess import Preprocess
 from python_detector.graph_extractor import extractGraph
 from python_detector.spermatozoid_extractor import cells_from_single_image
@@ -85,7 +85,7 @@ def sperm_movility_analysis(data_file = "",
         gray_img = cv.cvtColor(raw_img, cv.COLOR_BGR2GRAY)
         print("Frame " + str(frames_used+1) + " of " \
               + str(n_frames_to_use) + ":")
-        if not fitted:          # First iteration. Nothing is fitted
+        while not fitted:          # First iteration. Nothing is fitted
             print("\tAdjusting preprocessing...",end="")
             preproc.ext_param(gray_img)             # Preprocess fitting
             print("Done")
@@ -94,13 +94,22 @@ def sperm_movility_analysis(data_file = "",
             print("Done")
             print("\tFitting cluster...",end="")
             cluster.fit(norm_img, spatial = True)   # Cluster fitting
-            # Correct the cluster
-            while not cluster_corrector(cluster, norm_img):
-                print("\n\tCluster fitting failed. Refitting...",end="")
-
-            if cluster.c == 1:
-                print("Clustering failed. Analisys will finish")
-                return {}
+            # Check if the cluster failed
+            if not cluster.is_correct():
+                print("Cluster fitting failed")
+                if not preproc.local_norm:          # Retries with local norm
+                    print("\n\tRetrying with local normalization...\n",end="")
+                    preproc.local_norm = True
+                    continue
+                else:                               # Local norm already done
+                    print("\n\tRefitting...",end="")
+                    # Correct the cluster
+                    while not cluster.correct(norm_img):
+                        print("Cluster fitting failed")
+                        if cluster.c == 1:
+                            print("Clustering failed. Analisys will finish")
+                            return {}
+                        print("\n\tRefitting...",end="")
             print("Done")
             fitted = True
         else:

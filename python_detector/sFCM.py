@@ -156,30 +156,42 @@ class sFCM(object):
         # Maximum value of u is the predicted value
         return u.argmax(axis = -1).reshape((data_shape[0], data_shape[1]))
 
-"""
-Select the layers depending of the classes fitted with sFCM
-@param cluster is the fitted cluster to the image
-@param img is the image used to fit the cluster
-@return true iff the cluster has not been corrected
-"""
-def cluster_corrector(cluster, img):
-    # Distance between class centers
-    center_dist = cdist(cluster.v, cluster.v)
-    # If the distance is lower than the image sigma, it combine the classes
-    classes2combine = []
-    for [x, y] in np.argwhere(center_dist < 43):
-        if x != y and not [y,x] in classes2combine:
-            classes2combine.append([x,y])
+    """
+    Select the layers depending of the classes fitted with sFCM
+    @param cluster is the fitted cluster to the image
+    @param img is the image used to fit the cluster
+    @return true iff the cluster has not been corrected
+    """
+    def correct(self, img):
+        # Distance between class centers
+        center_dist = cdist(self.v, self.v)
+        # If the distance is lower than the image sigma, it combine the classes
+        classes2combine = []
+        for [x, y] in np.argwhere(center_dist < 43):
+            if x != y and not [y,x] in classes2combine:
+                classes2combine.append([x,y])
     
-    # Re-fit the cluster if needed
-    if len(classes2combine) > 0:
-        # Extract the new posible centers for the init
-        new_centers = np.array([v for i,v in enumerate(cluster.v)\
-           if i not in list(map(lambda x: x[1], classes2combine) )] )
-        # Update the cluster parameters and re-fit it
-        cluster.c = len(new_centers)
-        cluster.init_points = new_centers
-        cluster.fit(img)
-        return False
-    else:
-        return True
+        # Re-fit the cluster if needed
+        if len(classes2combine) > 0:
+            # Extract the new posible centers for the init
+            new_centers = np.array([v for i,v in enumerate(self.v)\
+               if i not in list(map(lambda x: x[1], classes2combine) )] )
+            # Update the cluster parameters and re-fit it
+            self.c = len(new_centers)
+            self.init_points = new_centers
+            self.fit(img)
+            return False
+        else:
+            return True
+
+    """
+    Return true iff the cluster is correct
+    """
+    def is_correct(self):
+        # Distance between class centers
+        center_dist = cdist(self.v, self.v)
+        # If the distance is lower than the image sigma, it combine the classes
+        if any((np.array(center_dist) < 43).ravel()):
+            return False
+        else:
+            return True

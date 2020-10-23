@@ -25,6 +25,8 @@ class Preprocess(object):
         self.max = 0
         self.inverted = False
         self.max_area = max_area
+        self.local_norm = False
+        self.norm_mask = None
 
     """
     It returns a linear normalization of the image
@@ -34,6 +36,15 @@ class Preprocess(object):
             np.subtract( img.astype('float32'), self.min), 
             255 / self.max)\
             .astype('ubyte')
+
+    """
+    It returns a local normalization in the color of the image
+    """
+    def __local_normalization(self, img):
+        norm_img = (img*self.norm_mask)
+        norm_img[norm_img >= 256] = 255
+        return norm_img.astype("ubyte")
+
 
     """
     It returns a z-score normalization of the image
@@ -60,27 +71,39 @@ class Preprocess(object):
     @param img. Image to extract the parameters from
     """
     def ext_param(self, img):
+        aux_img = img
         # Invert needed
         self.inverted = st.skew(img.ravel()) > 0
-        if self.inverted:
+        if not self.inverted:
             aux_img = self.__invert(img)
-        # Extract the parameters
-        self.mean = np.mean(img)
-        self.stdev = np.std(img)
-        self.min = np.min(img)
-        self.max = np.max(img)        
+        
+        if self.local_norm:
+            # Extract the mask to normalize the image locally
+            self.norm_mask = np.mean(aux_img) / cv.blur(aux_img, (21,21))
+            aux_img = self.__local_normalization(aux_img)
+
+        # Extract the parameters to the z-score norm
+        self.mean = np.mean(aux_img)
+        self.stdev = np.std(aux_img)
+        self.min = np.min(aux_img)
+        self.max = np.max(aux_img)
+
 
     """
     Preprocess the image with the given method
     @param img. Image to preprocess
-    @param linear. Performance linear normalization
+    @param local_norm. Performance local normalization iff true
     """
-    def apply(self, img):
-        # Normalize the image. It inverts if needed
+    def apply(self, img, local_norm = False):
+        # Invert if needed
+        norm_img = img
         if not self.inverted:
-            norm_img = self.__z_score_normalization(self.__invert(img))
-        else:
-            norm_img = self.__z_score_normalization(img)
+            norm_img = self.__invert(img)
+        if self.local_norm:
+            # Normalize the color in the image
+            norm_img = self.__local_normalization(norm_img)
+        # z-score normalize
+        norm_img = self.__z_score_normalization(norm_img)
 
         # Filter the particles
         if self.max_area > 0:
