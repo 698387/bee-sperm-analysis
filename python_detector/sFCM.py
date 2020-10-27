@@ -167,7 +167,7 @@ class sFCM(object):
         center_dist = cdist(self.v, self.v)
         # If the distance is lower than the image sigma, it combine the classes
         classes2combine = []
-        for [x, y] in np.argwhere(center_dist < 43):
+        for [x, y] in np.argwhere(center_dist < (129/self.c)):
             if x != y and not [y,x] in classes2combine:
                 classes2combine.append([x,y])
     

@@ -94,22 +94,29 @@ def sperm_movility_analysis(data_file = "",
             print("Done")
             print("\tFitting cluster...",end="")
             cluster.fit(norm_img, spatial = True)   # Cluster fitting
+            retry = False                           
             # Check if the cluster failed
             if not cluster.is_correct():
                 print("Cluster fitting failed")
-                if not preproc.local_norm:          # Retries with local norm
-                    print("\n\tRetrying with local normalization...\n",end="")
-                    preproc.local_norm = True
-                    continue
-                else:                               # Local norm already done
-                    print("\n\tRefitting...",end="")
-                    # Correct the cluster
-                    while not cluster.correct(norm_img):
-                        print("Cluster fitting failed")
-                        if cluster.c == 1:
+                print("\tRefitting...",end="")
+                # Correct the cluster
+                while not cluster.correct(norm_img):
+                    print("Cluster fitting failed")
+                    if cluster.c == 1:
+                        if not preproc.local_norm:  # Retries with local norm
+                            print("\tRetrying with local ", end="")
+                            print("normalization...\n", end="")
+                            preproc.local_norm = True
+                            cluster.c = 3
+                            cluster.init_points = []
+                            retry = True            # has to retry the fitting
+                            break
+                        else:                       # Clustering has failed
                             print("Clustering failed. Analisys will finish")
                             return {}
-                        print("\n\tRefitting...",end="")
+                    print("\tRefitting...",end="")
+                if retry:           # Retry if needed
+                    continue
             print("Done")
             fitted = True
         else:

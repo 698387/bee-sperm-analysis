@@ -100,7 +100,7 @@ class Configuration(Frame):
         self.n_frames_e.grid(row = 4, column = 1, sticky = E+W)
 
         # Max area of the particles allowed in the image
-        self.m_area_l = Label(self.window, text = "Maximum particle area*:")
+        self.m_area_l = Label(self.window, text = "Minimum particle area*:")
         self.m_area_l.grid(row = 5, sticky = E)
         self.m_area_var = DoubleVar()
         self.m_area_var.set(self.particles_max_area)
