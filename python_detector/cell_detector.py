@@ -123,13 +123,21 @@ def sperm_movility_analysis(data_file = "",
             print("\tPreprocessing...",end="")
             norm_img = preproc.apply(gray_img)      # Preprocess
             print("Done")
+
+        # Predict the class up to the cluster
+        pred_class = cluster.predict(norm_img, spatial = True)\
+                     .astype("ubyte")
+        # View cluster and normalized image. Commented to not saturate 
+        # the output
+        #cluster_img = np.zeros(raw_img.shape, dtype = "ubyte")
+        #cluster_img[pred_class == 1] = [255,0,0]
+        #cluster_img[pred_class == 2] = [0,0,255]
+        #cv.imshow("cluster", cluster_img)
+        #cv.imshow("normalized", norm_img)
     
         frames.append(raw_img)
         # Clustering by layers
         print("\tExtracting layers...",end="")
-        pred_class = cluster.predict(norm_img, spatial = True).astype("ubyte")
-        #cv.imshow("cluster", ((pred_class > 0) * 255).astype("ubyte"))
-        #cv.waitKey(0)
         print("Done")
         # Extract the morphological graph
         print("\tExtracting graph...",end="")
@@ -225,7 +233,6 @@ def sperm_movility_analysis(data_file = "",
             if stop > 0:
                 break
     cv.destroyAllWindows()
-
     return {"Number of detected cells": len(matches),
             "Number of moving cells": len(moving_matches),
             "Moving percentage (%)": (len(moving_matches)/len(matches)) * 100,
