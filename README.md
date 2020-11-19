@@ -1,5 +1,5 @@
-# bee-sperma-analysis
-Automation of the analysis of bee's sperma by computer vision. Detection and tracking the cells from videos obtained by a microscope. 
+# bee-sperm-analysis
+Automation of the analysis of bee's sperm by computer vision. Detection and tracking the cells from videos obtained by a microscope. 
 
 ## Goals
 
